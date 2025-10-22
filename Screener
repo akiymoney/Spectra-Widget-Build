@@ -1,0 +1,213 @@
+<!-- CYCLA • Screener Widget (255x523) • Squarespace-ready -->
+<div id="cycla-screener-center" style="--block-h: 550px;">
+  <div id="cycla-screener-widget" role="region" aria-label="Screener widget">
+    <!-- Widget label -->
+    <div class="widget-label">screener</div>
+
+    <div class="stack" aria-label="Screener UI Stack">
+      <!-- Top buttons row (233x34) -->
+      <div class="top-row" role="group" aria-label="Controls">
+        <label class="sr-only" for="asset-dd">Asset universe</label>
+        <select id="asset-dd" class="dd" aria-label="Asset dropdown">
+          <option>All</option>
+          <option>Crypto</option>
+          <option>Stocks</option>
+          <option>FX</option>
+          <option>ETF</option>
+        </select>
+
+        <label class="sr-only" for="tf-dd">Timeframe</label>
+        <select id="tf-dd" class="dd" aria-label="Timeframe dropdown">
+          <option>10m</option>
+          <option>1H</option>
+          <option>1D</option>
+          <option>1W</option>
+          <option>1M</option>
+          <option>All</option>
+        </select>
+
+        <button class="icon-btn" type="button" aria-label="Play scan">
+          <!-- Play icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="8,6 19,12 8,18 8,6"></polygon>
+          </svg>
+        </button>
+
+        <button class="icon-btn" type="button" aria-label="Stop scan">
+          <!-- Stop icon -->
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="2"></rect>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Scrollbar info HUD (233x34) -->
+      <div class="hud-bar info" aria-label="Screener status">
+        <span>rpm 0/60 · q 0 · hits 0 · scanned 0</span>
+      </div>
+
+      <!-- Search results HUD (233x377) -->
+      <div class="hud-results" aria-label="Search results">
+        <div class="results-head">
+          <span>Results</span>
+          <span class="dots" aria-hidden="true">···</span>
+        </div>
+        <div class="results-body">
+          <!-- Placeholder rows -->
+          <div class="row"><span>BTC-USD</span><span>↑ 1.2%</span></div>
+          <div class="row"><span>ETH-USD</span><span>↓ 0.6%</span></div>
+          <div class="row"><span>ADA-USD</span><span>↑ 0.3%</span></div>
+          <div class="row"><span>NVDA</span><span>↑ 0.9%</span></div>
+          <div class="row"><span>EURUSD</span><span>—</span></div>
+          <div class="row"><span>QQQ</span><span>↑ 0.2%</span></div>
+        </div>
+      </div>
+
+      <!-- Scrollbar ECU HUD (233x34) with LED at top-left -->
+      <div class="hud-bar ecu" role="status" aria-live="polite" aria-label="ECU status">
+        <span class="led" aria-hidden="true"></span>
+        <span>ECU: idle • 0 errors</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── Scoped to this block ───────────────────────── */
+  #cycla-screener-center *{ box-sizing: border-box; }
+  .sr-only{ position:absolute!important; inset:0 auto auto 0; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  /* Perfect centering inside Squarespace Code block
+     (match the Trades pattern exactly). Adjust --block-h inline as needed. */
+  #cycla-screener-center{
+    width:100%;
+    height: var(--block-h, 720px);    /* visual height of the Code block */
+    min-height:523px;                 /* never smaller than the widget */
+    display:flex;
+    align-items:center;               /* vertical center */
+    justify-content:center;           /* horizontal center */
+    margin:0 auto; padding:0;
+    position:relative;
+  }
+
+  /* Widget container: fixed 255x523 with floating shadows */
+  #cycla-screener-widget{
+    width:255px; height:523px; position:relative; overflow:hidden;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+    border-radius:14px; background:#f6f8fc;
+    border:1px solid rgba(10,20,40,.12);
+    box-shadow: 0 18px 55px rgba(8,16,40,.28), 0 2px 10px rgba(8,16,40,.12);
+    padding:10px;
+  }
+
+  /* Top-left floating label (same treatment as Trades) */
+  #cycla-screener-widget .widget-label{
+    position:absolute; top:8px; left:10px;
+    font-weight:700; font-size:12px; letter-spacing:.4px;
+    color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    padding:4px 8px; border-radius:8px;
+    backdrop-filter:saturate(140%) blur(4px);
+    pointer-events:none;
+    text-transform:lowercase;
+  }
+
+  /* Column stack under the label — tuned to fit exactly within 523px */
+  .stack{
+    margin-top:6px;                   /* minimal offset so all HUDs fit 1:1 */
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+
+  /* Top buttons row (233x34) */
+  .top-row{
+    width:233px; height:34px; display:flex; align-items:center; gap:8px;
+  }
+
+  /* Dropdowns (55x34) */
+  .dd{
+    width:55px; height:34px;
+    border:2px solid rgba(10,20,40,.15);
+    border-radius:10px; background:#fff;
+    font-weight:800; font-size:12px; letter-spacing:.2px;
+    padding:0 6px; line-height:34px; cursor:pointer;
+    box-shadow: 0 4px 12px rgba(8,16,40,.10);
+    text-align:center; text-align-last:center;
+    appearance:auto;
+  }
+  .dd:focus{ outline:none; box-shadow: 0 0 0 2px rgba(56,119,255,.25), 0 4px 12px rgba(8,16,40,.10); }
+
+  /* Icon buttons (34x34) */
+  .icon-btn{
+    width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:10px; background:#ffffff;
+    border:2px solid rgba(10,20,40,.15);
+    box-shadow: 0 4px 12px rgba(8,16,40,.12);
+    cursor:pointer; padding:0;
+    line-height:1;
+  }
+  .icon-btn:hover{ transform:translateY(-1px); transition:transform .08s ease; }
+  .icon-btn svg{ width:18px; height:18px; }
+
+  /* HUD bars (233x34) */
+  .hud-bar{
+    width:233px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:10px;
+    background:linear-gradient(180deg,#eef3ff 0%,#e5ecff 100%);
+    border:1px solid rgba(10,20,40,.10);
+    box-shadow: 0 8px 24px rgba(8,16,40,.18);
+    color:#33415e; font-weight:700;
+    padding:0 10px;
+    position:relative;
+  }
+  .hud-bar.info{ background:linear-gradient(180deg,#e9fbff 0%,#dbf6ff 100%); }
+
+  /* Search results HUD (233x377) */
+  .hud-results{
+    width:233px; height:377px; display:flex; flex-direction:column;
+    border-radius:16px; overflow:hidden;
+    background:linear-gradient(180deg,#f7f7ff 0%,#eef0ff 100%);
+    border:1px solid rgba(10,20,40,.10);
+    box-shadow: 0 8px 24px rgba(8,16,40,.18);
+  }
+  .results-head{
+    height:30px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 10px; font-weight:800; color:#33415e;
+    background:rgba(255,255,255,.55); border-bottom:1px solid rgba(10,20,40,.08);
+  }
+  .results-body{ flex:1; padding:6px; overflow:auto; }
+  .row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 8px; margin:3px 0; border-radius:10px;
+    background:rgba(255,255,255,.70);
+    border:1px solid rgba(10,20,40,.06);
+    font-weight:600; color:#1b2a4a;
+  }
+
+  /* Custom-ish scrollbar for results */
+  .results-body::-webkit-scrollbar{ width:8px; }
+  .results-body::-webkit-scrollbar-track{ background:transparent; }
+  .results-body::-webkit-scrollbar-thumb{ background:rgba(0,0,0,.18); border-radius:8px; }
+
+  /* ECU bar with LED (8x8 in top-left corner) */
+  .hud-bar.ecu{ background:linear-gradient(180deg,#fff6f6 0%,#ffecec 100%); }
+  .led{
+    position:absolute; top:8px; left:8px;
+    width:8px; height:8px; border-radius:50%;
+    background:#20c997;                  /* OK (green) */
+    box-shadow: 0 0 0 2px rgba(32,201,151,.2), 0 0 8px rgba(32,201,151,.55);
+  }
+  .led.error{
+    background:#ff4d4f;                  /* Error (red) */
+    box-shadow: 0 0 0 2px rgba(255,77,79,.2), 0 0 8px rgba(255,77,79,.55);
+  }
+
+  /* Safety for super narrow columns */
+  @media (max-width: 260px){
+    #cycla-screener-widget{ transform:scale(.98); transform-origin:center; }
+  }
+</style>
