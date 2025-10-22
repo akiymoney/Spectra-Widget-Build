@@ -1,5 +1,5 @@
 <!-- CYCLA • Trades Widget (255x523) • Squarespace-ready -->
-<div id="cycla-trades-center">
+<div id="cycla-trades-center" style="--block-h: 550px;">
   <div id="cycla-trades-widget" role="region" aria-label="Trades widget">
     <!-- Widget label -->
     <div class="widget-label">Trades</div>
@@ -11,7 +11,6 @@
         <span class="dots" aria-hidden="true">···</span>
       </div>
       <div class="hud-body">
-        <!-- placeholder content -->
         <div class="metric">
           <div class="metric-num">+$0.00</div>
           <div class="metric-sub">Realized / Unrealized</div>
@@ -55,13 +54,17 @@
   /* ───────────────────────── Scoped to this block ───────────────────────── */
   #cycla-trades-center * { box-sizing: border-box; }
 
-  /* Center the widget perfectly inside the Squarespace code block */
+  /* Center the widget perfectly inside the Squarespace code block
+     Adjust --block-h inline if your block is taller/shorter. */
   #cycla-trades-center{
     width:100%;
-    min-height:523px;                 /* equals widget height, ensures true centering */
-    display:grid;
-    place-items:center;               /* centers both axes */
-    padding:0; margin:0 auto;
+    height: var(--block-h, 720px);    /* visual height of the Code block */
+    min-height:523px;                 /* never smaller than the widget */
+    display:flex;
+    align-items:center;               /* vertical center */
+    justify-content:center;           /* horizontal center */
+    margin:0 auto; padding:0;
+    position:relative;
   }
 
   /* The widget container: fixed 255x523 */
@@ -104,7 +107,7 @@
   }
   .hud:last-of-type{ margin-bottom:8px; }
 
-  /* Per-card pastel tints (matching the screenshot vibe) */
+  /* Pastel tints like the reference */
   .hud.pl{        background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%); }
   .hud.watchlist{ background:linear-gradient(180deg,#f2e6ff 0%,#e6d6ff 100%); }
   .hud.trades{    background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%); }
@@ -122,7 +125,6 @@
 
   /* HUD body */
   .hud-body{ flex:1; padding:10px; display:flex; align-items:center; justify-content:center; }
-
   .metric{ text-align:center; }
   .metric-num{ font-size:22px; font-weight:800; margin-bottom:4px; color:#1b2a4a; }
   .metric-sub{ font-size:11px; color:#4b5a7a; }
@@ -142,10 +144,14 @@
   }
   .btn{
     width:55px; height:34px;
-    border-radius:10px; font-weight:800; letter-spacing:.3px;
+    display:flex; align-items:center; justify-content:center; /* <-- centers text */
+    line-height:1;                                          /* prevents vertical overflow */
+    padding:0;                                              /* keeps label centered */
+    border-radius:10px; font-weight:800; font-size:12px; letter-spacing:.2px;
     background:#ffffff; border:2px solid rgba(10,20,40,.15);
     box-shadow: 0 4px 12px rgba(8,16,40,.12);
     cursor:pointer;
+    user-select:none;
   }
   .btn:hover{ transform:translateY(-1px); transition:transform .08s ease; }
   .btn:active{ transform:translateY(0); }
@@ -157,6 +163,8 @@
     color:#b0000a;
   }
 
-  /* Small safety for narrow parent containers */
-  @media (max-width: 260px){ #cycla-trades-widget{ transform:scale(.98); transform-origin:center; } }
+  /* Safety for super narrow columns */
+  @media (max-width: 260px){
+    #cycla-trades-widget{ transform:scale(.98); transform-origin:center; }
+  }
 </style>
