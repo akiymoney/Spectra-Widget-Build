@@ -1,8 +1,8 @@
 <!-- CYCLA • Screener Widget (255x523) • Squarespace-ready -->
 <div id="cycla-screener-center" style="--block-h: 550px;">
   <div id="cycla-screener-widget" role="region" aria-label="Screener widget">
-    <!-- Widget label -->
-    <div class="widget-label">screener</div>
+    <!-- Widget label (moved, capitalized, and sent behind controls) -->
+    <div class="widget-label">Screener</div>
 
     <div class="stack" aria-label="Screener UI Stack">
       <!-- Top buttons row (233x34) -->
@@ -78,17 +78,13 @@
   #cycla-screener-center *{ box-sizing: border-box; }
   .sr-only{ position:absolute!important; inset:0 auto auto 0; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
-  /* Perfect centering inside Squarespace Code block
-     (match the Trades pattern exactly). Adjust --block-h inline as needed. */
+  /* Perfect centering inside Squarespace Code block */
   #cycla-screener-center{
     width:100%;
-    height: var(--block-h, 720px);    /* visual height of the Code block */
-    min-height:523px;                 /* never smaller than the widget */
-    display:flex;
-    align-items:center;               /* vertical center */
-    justify-content:center;           /* horizontal center */
-    margin:0 auto; padding:0;
-    position:relative;
+    height: var(--block-h, 720px);
+    min-height:523px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
   }
 
   /* Widget container: fixed 255x523 with floating shadows */
@@ -102,9 +98,10 @@
     padding:10px;
   }
 
-  /* Top-left floating label (same treatment as Trades) */
+  /* Label: pinned to container’s top-left, behind all controls */
   #cycla-screener-widget .widget-label{
-    position:absolute; top:8px; left:10px;
+    position:absolute; top:0; left:0;       /* glued to inner borders */
+    z-index:0;                               /* sits behind UI */
     font-weight:700; font-size:12px; letter-spacing:.4px;
     color:#3b4a6b;
     background:rgba(255,255,255,.75);
@@ -112,12 +109,13 @@
     padding:4px 8px; border-radius:8px;
     backdrop-filter:saturate(140%) blur(4px);
     pointer-events:none;
-    text-transform:lowercase;
+    text-transform:none;                     /* keep capital S */
   }
 
-  /* Column stack under the label — tuned to fit exactly within 523px */
+  /* Column stack above the label for proper layering */
   .stack{
-    margin-top:6px;                   /* minimal offset so all HUDs fit 1:1 */
+    position:relative; z-index:1;
+    margin-top:6px;
     display:flex; flex-direction:column; align-items:center; gap:6px;
   }
 
@@ -146,8 +144,7 @@
     border-radius:10px; background:#ffffff;
     border:2px solid rgba(10,20,40,.15);
     box-shadow: 0 4px 12px rgba(8,16,40,.12);
-    cursor:pointer; padding:0;
-    line-height:1;
+    cursor:pointer; padding:0; line-height:1;
   }
   .icon-btn:hover{ transform:translateY(-1px); transition:transform .08s ease; }
   .icon-btn svg{ width:18px; height:18px; }
@@ -161,8 +158,7 @@
     border:1px solid rgba(10,20,40,.10);
     box-shadow: 0 8px 24px rgba(8,16,40,.18);
     color:#33415e; font-weight:700;
-    padding:0 10px;
-    position:relative;
+    padding:0 10px; position:relative;
   }
   .hud-bar.info{ background:linear-gradient(180deg,#e9fbff 0%,#dbf6ff 100%); }
 
@@ -206,7 +202,6 @@
     box-shadow: 0 0 0 2px rgba(255,77,79,.2), 0 0 8px rgba(255,77,79,.55);
   }
 
-  /* Safety for super narrow columns */
   @media (max-width: 260px){
     #cycla-screener-widget{ transform:scale(.98); transform-origin:center; }
   }
