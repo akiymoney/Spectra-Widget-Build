@@ -1,0 +1,141 @@
+<!-- CYCLA • Charting Panel (1008x523) • collision-proof + Squarespace-ready -->
+<div id="cycla-chart-center" style="--block-h: 550px;">
+  <div id="cycla-chart-widget" role="region" aria-label="Charting Panel">
+    <!-- Widget label -->
+    <div class="cp-label">Charting Panel</div>
+
+    <!-- Upper HUD: Chart (987x377) -->
+    <div class="cp-hud cp-chart">
+      <!-- Overlay tools (top-left) -->
+      <div class="cp-tools" aria-label="Chart Tools">
+        <label class="cp-sr-only" for="cp-search">Search</label>
+        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="Search" />
+        <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">TF</button>
+        <button class="cp-tool cp-w"  type="button" aria-label="W">W</button>
+      </div>
+
+      <!-- Overlay info (top-center, 377x34) -->
+      <div class="cp-info" role="status" aria-live="polite">
+        <span class="sym">BTC-USD</span>
+        <span class="sep">•</span>
+        <span class="name">Bitcoin</span>
+        <span class="sep">•</span>
+        <span class="last">Last: —</span>
+      </div>
+
+      <!-- Chart canvas placeholder -->
+      <div class="cp-chart-area" aria-hidden="true">
+        <div class="cp-chart-grid"></div>
+      </div>
+    </div>
+
+    <!-- Lower HUD: Indicator (987x144) -->
+    <div class="cp-hud cp-indicator">
+      <div class="cp-ind-area" aria-hidden="true">
+        <div class="cp-ind-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── a11y helper ───────────────────────── */
+  #cycla-chart-widget .cp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* ───────────────────────── isolation + reset ───────────────────────── */
+  #cycla-chart-center * { box-sizing:border-box; }
+  #cycla-chart-center{
+    width:100%;
+    height:var(--block-h, 720px);
+    min-height:523px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+
+  /* Root widget (fixed 1008x523) */
+  #cycla-chart-widget{
+    width:1008px; height:523px; position:relative; overflow:hidden;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+    border-radius:14px; background:#f6f8fc;
+    border:1px solid rgba(10,20,40,.12);
+    box-shadow: 0 18px 55px rgba(8,16,40,.28), 0 2px 10px rgba(8,16,40,.12);
+  }
+
+  /* Label */
+  #cycla-chart-widget .cp-label{
+    position:absolute; top:8px; left:8px; z-index:4;
+    font-weight:700; font-size:12px; letter-spacing:.4px; color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    padding:4px 8px; border-radius:8px;
+    backdrop-filter:saturate(140%) blur(4px);
+    pointer-events:none;
+  }
+
+  /* ───────────────────────── HUDs (scoped) ───────────────────────── */
+  #cycla-chart-widget .cp-hud{
+    width:987px; margin:0 auto; border-radius:16px;
+    border:1px solid rgba(10,20,40,.10);
+    overflow:hidden; position:relative;
+    box-shadow: 0 8px 24px rgba(8,16,40,.18);
+  }
+  #cycla-chart-widget .cp-chart{
+    height:377px;
+    background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%);
+  }
+  #cycla-chart-widget .cp-indicator{
+    height:144px; margin-top:2px;
+    background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%);
+  }
+
+  /* Chart + Indicator grid placeholders */
+  #cycla-chart-widget .cp-chart-area,
+  #cycla-chart-widget .cp-ind-area{ position:absolute; inset:0; }
+  #cycla-chart-widget .cp-chart-grid,
+  #cycla-chart-widget .cp-ind-grid{
+    position:absolute; inset:0; opacity:.6;
+    background-image:
+      linear-gradient(rgba(10,20,40,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(10,20,40,.06) 1px, transparent 1px);
+    background-size: 28px 28px, 28px 28px;
+  }
+
+  /* Top-left tools */
+  #cycla-chart-widget .cp-tools{
+    position:absolute; top:8px; left:8px; z-index:3;
+    display:flex; gap:6px; align-items:center;
+  }
+  #cycla-chart-widget .cp-tool{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:34px; border-radius:10px;
+    border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.78);
+    backdrop-filter:saturate(140%) blur(4px);
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+    font-weight:700; color:#1b2a4a;
+  }
+  #cycla-chart-widget .cp-search{ width:89px; padding:0 8px; font-weight:600; outline:none; }
+  #cycla-chart-widget .cp-search::placeholder{ color:#5a6a8a; opacity:.85; }
+  #cycla-chart-widget .cp-tf{ width:55px; cursor:pointer; }
+  #cycla-chart-widget .cp-w{  width:34px; cursor:pointer; }
+
+  /* Top-center info (377x34) */
+  #cycla-chart-widget .cp-info{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:3;
+    width:377px; height:34px; display:flex; align-items:center; justify-content:center; gap:10px;
+    font-weight:700; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(10,20,40,.14); border-radius:10px;
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+  #cycla-chart-widget .cp-info .sep{ opacity:.6; }
+  #cycla-chart-widget .cp-info .sym{ font-weight:800; }
+  #cycla-chart-widget .cp-info .last{ font-weight:800; color:#1b2a4a; }
+
+  /* Safety nudge on very narrow embeds (keeps aspect) */
+  @media (max-width: 1020px){
+    #cycla-chart-widget{ transform:scale(.98); transform-origin:center; }
+  }
+</style>
