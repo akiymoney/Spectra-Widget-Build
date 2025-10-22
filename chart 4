@@ -1,0 +1,519 @@
+<!-- CYCLA • Charting Panel (max 987x523) • live TwelveData + TF dropdown -->
+<div id="cycla-chart-center" style="--block-h: 523px;">
+  <div id="cycla-chart-widget" role="region" aria-label="Cycla Spectra" data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
+    <!-- Widget label -->
+    <div class="cp-label">CYCLA Spectra</div>
+
+    <!-- Upper HUD: Chart (987x377) -->
+    <div class="cp-hud cp-chart">
+      <!-- Overlay tools (top-left) -->
+      <div class="cp-tools" aria-label="Chart Tools">
+        <label class="cp-sr-only" for="cp-search">Search</label>
+        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTC-USD, AAPL, EUR-USD" />
+        <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">1m</button>
+        <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
+      </div>
+
+      <!-- Top-center info (377x34) -->
+      <div class="cp-info" aria-live="polite">
+        <span class="sym">BTC-USD</span><span class="sep">•</span><span class="name">—</span><span class="sep">•</span><span class="last">Last: —</span>
+      </div>
+
+      <!-- Lightweight Charts host (987x377) -->
+      <div id="lc-container" class="lc-host" role="img" aria-label="Price chart"></div>
+
+      <!-- TF dropdown -->
+      <div id="cp-tf-menu" class="cp-dd cp-dd--hidden" aria-label="Timeframes" role="menu">
+        <button data-tf="1m"  role="menuitem">1m</button>
+        <button data-tf="3m"  role="menuitem">3m</button>
+        <button data-tf="5m"  role="menuitem">5m</button>
+        <button data-tf="8m"  role="menuitem">8m</button>
+        <button data-tf="13m" role="menuitem">13m</button>
+        <button data-tf="21m" role="menuitem">21m</button>
+        <button data-tf="34m" role="menuitem">34m</button>
+        <button data-tf="1H"  role="menuitem">1H</button>
+        <button data-tf="1D"  role="menuitem">1D</button>
+        <button data-tf="1M"  role="menuitem">1M</button>
+      </div>
+    </div>
+
+    <!-- Lower HUD: SMFT Osc placeholder (987x144) -->
+    <div class="cp-hud cp-osc" aria-label="SMFT Osc">
+      <div class="cp-osc-inner">SMFT Osc — (placeholder)</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── Scoped to this block ───────────────────────── */
+  #cycla-chart-center * { box-sizing:border-box; }
+  #cycla-chart-center{
+    width:100%;
+    height:var(--block-h, 523px);
+    min-height:523px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+
+  /* Root widget — responsive down, capped at 987x523, transparent */
+  #cycla-chart-widget{
+    position:relative;
+    width:100%;
+    max-width:987px; /* ← requested max width */
+    height:auto;     /* natural height from children (377+2+144=523) */
+    max-height:523px;
+    margin:0 auto;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+  }
+
+  /* Label (mirrored to top-right) */
+  #cycla-chart-widget .cp-label{
+    position:absolute; top:8px; left:auto; right:8px; z-index:4;
+    font-weight:700; font-size:12px; letter-spacing:.4px; color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    border-radius:8px; padding:6px 10px;
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+
+  /* HUD shells */
+#cycla-chart-widget .cp-hud{
+  width:987px; margin:0 auto; position:relative;
+  border-radius:12px; border:1px solid rgba(10,20,40,.12);
+  box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+  overflow:hidden;
+  backdrop-filter:saturate(140%) blur(6px);
+}
+
+/* Upper chart HUD — soft blue */
+#cycla-chart-widget .cp-chart{
+  height:377px;
+  background:linear-gradient(180deg, #dceeff 0%, #cbe0fa 100%);
+}
+
+/* Lower oscillator HUD — pale green */
+#cycla-chart-widget .cp-osc{
+  height:144px; margin-top:2px;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, #d7f8e0 0%, #c8f3d5 100%);
+}
+
+  #cycla-chart-widget .cp-osc-inner{ font-weight:700; color:#3b4a6b; opacity:.66; }
+
+  /* Tools (top-left row) */
+  #cycla-chart-widget .cp-tools{
+    position:absolute; top:8px; left:8px; z-index:5; display:flex; gap:6px; align-items:center;
+  }
+  #cycla-chart-widget .cp-tool{
+    height:34px; min-width:34px; display:inline-flex; align-items:center; justify-content:center;
+    padding:0 10px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+    font-weight:610; color:#1b2a4a;
+  }
+  #cycla-chart-widget .cp-search{ width:144px; padding:0 8px; font-weight:610; outline:none; }
+  #cycla-chart-widget .cp-search::placeholder{ color:#5a6a8a; opacity:.89; }
+  #cycla-chart-widget .cp-tf{ width:55px; cursor:pointer; }
+  #cycla-chart-widget .cp-w{  width:34px; cursor:pointer; }
+
+  /* Top-center info (377x34) */
+  #cycla-chart-widget .cp-info{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:4;
+    width:377px; height:34px; display:flex; align-items:center; justify-content:center; gap:10px;
+    font-weight:700; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(10,20,40,.14); border-radius:10px;
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+  #cycla-chart-widget .cp-info .sep{ opacity:.5; }
+  #cycla-chart-widget .cp-info .sym{ font-weight:800; }
+  #cycla-chart-widget .cp-info .last{ font-weight:800; color:#1b2a4a; }
+
+  /* TF dropdown (scoped) */
+  #cycla-chart-widget .cp-dd{
+    position:absolute; top:48px; left:8px; z-index:6;
+    display:grid; grid-template-columns: repeat(5, auto); gap:6px;
+    padding:8px; border-radius:10px;
+    background:rgba(255,255,255,.95);
+    border:1px solid rgba(10,20,40,.14);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+  }
+  #cycla-chart-widget .cp-dd--hidden{ display:none; }
+  #cycla-chart-widget .cp-dd > button{
+    height:34px; min-width:55px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:#fff; font-weight:700; cursor:pointer;
+  }
+  #cycla-chart-widget .cp-dd > button:hover{ background:#eef4ff; }
+
+  /* Chart host */
+  #cycla-chart-widget .lc-host{
+    position:absolute; inset:0 0 0 0; top:0; left:0; height:377px; width:987px;
+  }
+
+  /* A11y helper */
+  .cp-sr-only{ position:absolute!important; inset:0 auto auto 0; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+</style>
+
+<!-- Lightweight Charts (small, CDN) -->
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<script>
+(()=>{
+  // ───────────────────────── Config / Theme ─────────────────────────
+  const ROOT = document.getElementById('cycla-chart-widget');
+  const TD_KEY = ROOT.getAttribute('data-td-key') || '';
+
+  const DEFAULT_SYMBOL = 'BTC-USD';
+
+  const INFO = {
+    box:  ROOT.querySelector('.cp-info'),
+    sym:  ROOT.querySelector('.cp-info .sym'),
+    name: ROOT.querySelector('.cp-info .name'),
+    last: ROOT.querySelector('.cp-info .last')
+  };
+  const TF_BTN = ROOT.querySelector('.cp-tf');
+  const TF_MENU = ROOT.querySelector('#cp-tf-menu');
+  const SEARCH  = ROOT.querySelector('#cp-search');
+  const W_BTN   = ROOT.querySelector('.cp-w');
+
+  // Chart theme (teal/purple)
+  const COLORS = {
+    up: '#14B8A6',
+    upBorder: '#0F766E',
+    down: '#723085',
+    downBorder: '#6D28D9',
+    wick: '#0A1F33',
+    grid: 'rgba(10,20,40,.10)',
+    text: '#1b2a4a',
+  };
+
+  // TF map: native vs resample (from 1min)
+  const TF = {
+    '1m': { kind:'native', td:'1min' },
+    '3m': { kind:'resample', base:'1min', mult:3 },
+    '5m': { kind:'native', td:'5min' },
+    '8m': { kind:'resample', base:'1min', mult:8 },
+    '13m':{ kind:'resample', base:'1min', mult:13 },
+    '21m':{ kind:'resample', base:'1min', mult:21 },
+    '34m':{ kind:'resample', base:'1min', mult:34 },
+    '1H': { kind:'native', td:'1h' },
+    '1D': { kind:'native', td:'1day' },
+    '1M': { kind:'native', td:'1month' },
+  };
+
+  // ───────────────────────── Utilities ─────────────────────────
+  const normalizeSymbol = (s) => s.replace(/-/g,'/').toUpperCase(); // BTC-USD → BTC/USD
+  const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000);
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+
+  function resampleOHLC(bars, seconds){
+    // Aggregate into aligned buckets [.., t0, t0+sec, ...], each with O,H,L,C
+    if(!bars.length) return [];
+    const out = [];
+    const start = Math.floor(bars[0].time / seconds) * seconds;
+    let bucketStart = start, bucketEnd = start + seconds;
+    let cur = null;
+
+    for(const b of bars){
+      while(b.time >= bucketEnd){
+        if(cur){ out.push(cur); cur = null; }
+        bucketStart = bucketEnd;
+        bucketEnd += seconds;
+      }
+      if(!cur){
+        cur = { time: bucketStart, open:b.open, high:b.high, low:b.low, close:b.close };
+      }else{
+        cur.high = Math.max(cur.high, b.high);
+        cur.low  = Math.min(cur.low,  b.low);
+        cur.close = b.close;
+      }
+    }
+    if(cur){ out.push(cur); }
+    return out;
+  }
+
+  // ───────────────────────── SMFT (Spectral Memory) Candles ─────────────────────────
+  // Pine defaults: ξ=3.0, E_sat%=8.0, γ=8.0, ATR length=5 (RMA)
+  const SMFT_PARAMS = { xi: 3.0, eSatPct: 8.0, gamma: 8.0, atrLen: 5 };
+
+  function trueRange(h, l, prevClose){
+    if(prevClose == null) return h - l;
+    const a = h - l;
+    const b = Math.abs(h - prevClose);
+    const c = Math.abs(l - prevClose);
+    return Math.max(a, b, c);
+  }
+
+  function rmaNext(prev, x, len){
+    if(prev == null) return x;
+    return (prev * (len - 1) + x) / len;
+  }
+
+  function smftAlpha(atrPct, p){
+    const xiMem = Math.max(1, p.xi / (1 + Math.pow(atrPct / p.eSatPct, p.gamma)));
+    return 2 / (xiMem + 1);
+  }
+
+  // Build full SMFT series from raw OHLC
+  function buildSMFT(bars, p=SMFT_PARAMS){
+    let prevClose = null, atrRma = null;
+    let oP = null, hP = null, lP = null, cP2 = null;
+    const out = [];
+
+    for(const b of bars){
+      const tr = trueRange(b.high, b.low, prevClose);
+      atrRma = rmaNext(atrRma, tr, p.atrLen);
+      const atrPct = (atrRma / (b.close || 1)) * 100;
+      const alpha = smftAlpha(atrPct, p);
+
+      if(oP == null){
+        oP = b.open; hP = b.high; lP = b.low; cP2 = b.close;
+      }else{
+        oP  = oP  + alpha * (b.open  - oP);
+        hP  = hP  + alpha * (b.high  - hP);
+        lP  = lP  + alpha * (b.low   - lP);
+        cP2 = cP2 + alpha * (b.close - cP2);
+      }
+      const prevCloseSmft = out.length ? out[out.length - 1].close : cP2;
+      const rising = cP2 > prevCloseSmft;
+      out.push({
+        time: b.time,
+        open: oP, high: hP, low: lP, close: cP2,
+        color: rising ? COLORS.up : COLORS.down
+      });
+
+      prevClose = b.close;
+    }
+
+    return { bars: out, state: { prevClose, atrRma, oP, hP, lP, cP2, params: p } };
+  }
+
+  // Incremental step for new/raw tail bars (mutates state)
+  function smftStep(state, tailBars){
+    const p = state.params || SMFT_PARAMS;
+    const out = [];
+    for(const b of tailBars){
+      const tr = trueRange(b.high, b.low, state.prevClose);
+      state.atrRma = rmaNext(state.atrRma, tr, p.atrLen);
+      const atrPct = (state.atrRma / (b.close || 1)) * 100;
+      const alpha = smftAlpha(atrPct, p);
+
+      if(state.oP == null){
+        state.oP = b.open; state.hP = b.high; state.lP = b.low; state.cP2 = b.close;
+      }else{
+        state.oP  = state.oP  + alpha * (b.open  - state.oP);
+        state.hP  = state.hP  + alpha * (b.high  - state.hP);
+        state.lP  = state.lP  + alpha * (b.low   - state.lP);
+        state.cP2 = state.cP2 + alpha * (b.close - state.cP2);
+      }
+      const prevCloseSmft = out.length ? out[out.length - 1].close : state.cP2;
+      const rising = state.cP2 > prevCloseSmft;
+
+      out.push({
+        time: b.time,
+        open: state.oP, high: state.hP, low: state.lP, close: state.cP2,
+        color: rising ? COLORS.up : COLORS.down
+      });
+
+      state.prevClose = b.close;
+    }
+    return out;
+  }
+
+  // ───────────────────────── TwelveData fetchers ─────────────────────────
+  async function fetchTDSeries(symbol, interval, size=1000){
+    if(!TD_KEY){ throw new Error('Missing TwelveData API key. Add data-td-key on #cycla-chart-widget.'); }
+    const url = new URL('https://api.twelvedata.com/time_series');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('interval', interval);
+    url.searchParams.set('outputsize', String(size));
+    url.searchParams.set('timezone', 'UTC');
+    url.searchParams.set('format', 'JSON');
+    url.searchParams.set('order', 'ASC');
+    url.searchParams.set('apikey', TD_KEY);
+
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if(data.status === 'error' || !data.values){
+      const msg = data.message || 'TwelveData error';
+      throw new Error(msg);
+    }
+    // Map to Lightweight Charts format (ascending time)
+    return data.values.map(v => ({
+      time:  toEpoch(v.datetime), // seconds
+      open:  parseFloat(v.open),
+      high:  parseFloat(v.high),
+      low:   parseFloat(v.low),
+      close: parseFloat(v.close),
+    }));
+  }
+
+  async function getBars(symbol, tfKey, wantBars=600){
+    const spec = TF[tfKey];
+    if(!spec) throw new Error('Unsupported TF: '+tfKey);
+
+    if(spec.kind === 'native'){
+      // Ask for a bit more to ensure smooth viewport
+      const native = await fetchTDSeries(symbol, spec.td, clamp(wantBars*1.2, 300, 5000));
+      return native;
+    }else{
+      // resample from 1min series
+      const mult = spec.mult;
+      const baseNeeded = clamp(wantBars * mult * 1.3, 600, 8000);
+      const base = await fetchTDSeries(symbol, '1min', baseNeeded);
+      const out = resampleOHLC(base, mult*60);
+      return out.slice(-wantBars);
+    }
+  }
+
+  // Poll the most recent few bars to update/append
+  async function getTail(symbol, tfKey){
+    const spec = TF[tfKey];
+    if(spec.kind === 'native'){
+      const tail = await fetchTDSeries(symbol, spec.td, 3);
+      return tail.slice(-3);
+    }else{
+      const baseTail = await fetchTDSeries(symbol, '1min', spec.mult*6); // enough to build last 2 buckets
+      return resampleOHLC(baseTail, spec.mult*60).slice(-2);
+    }
+  }
+
+  // ───────────────────────── Chart bootstrap ─────────────────────────
+  const LC = window.LightweightCharts;
+  const CONTAINER = ROOT.querySelector('#lc-container');
+  if(!LC || !LC.createChart){
+    CONTAINER.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b2a4a;font-weight:700;">Chart library failed to load.</div>';
+    return;
+  }
+
+  const chart = LC.createChart(CONTAINER, {
+    width:  CONTAINER.clientWidth,
+    height: CONTAINER.clientHeight,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    grid: { vertLines: { color: 'rgba(10,20,40,.10)' }, horzLines: { color: 'rgba(10,20,40,.10)' } },
+    crosshair: { mode: 0 },
+  });
+
+  const series = chart.addCandlestickSeries({
+    upColor: COLORS.up, downColor: COLORS.down,
+    borderUpColor: COLORS.upBorder, borderDownColor: COLORS.downBorder,
+    wickUpColor: COLORS.wick, wickDownColor: COLORS.wick,
+  });
+
+  // Resize observer to keep exact 987×377 fit
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: CONTAINER.clientWidth, height: CONTAINER.clientHeight });
+  }).observe(CONTAINER);
+
+  // Wick toggle
+  let wicksOn = true;
+  W_BTN.addEventListener('click', ()=>{
+    wicksOn = !wicksOn;
+    series.applyOptions({
+      wickUpColor: wicksOn ? COLORS.wick : 'transparent',
+      wickDownColor: wicksOn ? COLORS.wick : 'transparent',
+    });
+  });
+
+  // ───────────────────────── Load symbol + TF ─────────────────────────
+  let current = { symbol: normalizeSymbol(DEFAULT_SYMBOL), tf:'1m', poll:null, lastTime:0, smftState:null };
+
+  async function load(symbolInput, tfInput){
+    try{
+      const symbol = normalizeSymbol(symbolInput || current.symbol);
+      const tf     = tfInput || current.tf;
+      if(current.poll){ clearInterval(current.poll); current.poll = null; }
+
+      TF_BTN.textContent = tf;
+      INFO.sym.textContent = symbol.replace('/', '-');
+      INFO.name.textContent = '—';
+      INFO.last.textContent = 'Last: —';
+
+      const bars = await getBars(symbol, tf, 600);
+      const smftFull = buildSMFT(bars, SMFT_PARAMS);
+      series.setData(smftFull.bars);
+      current.lastTime = smftFull.bars.length ? smftFull.bars[smftFull.bars.length-1].time : 0;
+      current.smftState = smftFull.state;
+      chart.timeScale().fitContent();
+
+      // Fetch instrument meta name (optional, best-effort via quote endpoint)
+      try{
+        const qURL = new URL('https://api.twelvedata.com/quote');
+        qURL.searchParams.set('symbol', symbol);
+        qURL.searchParams.set('apikey', TD_KEY);
+        const q = await fetch(qURL).then(r=>r.json());
+        if(q && q.name){ INFO.name.textContent = q.name; }
+        if(q && q.close){ INFO.last.textContent = 'Last: ' + Number(q.close).toFixed(2); }
+      }catch(e){ /* non-fatal */ }
+
+      // Start 5s “breathing” poll
+      const periodMs = (tf === '1H' || tf === '1D' || tf === '1M') ? 15000 : 5000;
+      current.poll = setInterval(async ()=>{
+        try{
+          const tail = await getTail(symbol, tf);
+          if(!tail.length) return;
+          // Update/append logically
+          const smftTail = smftStep(current.smftState, tail);
+          for(const bar of smftTail){
+            if(bar.time > current.lastTime){
+              series.update(bar);
+              current.lastTime = bar.time;
+            }else if(bar.time === current.lastTime){
+              series.update(bar);
+            }
+          }
+          const lastRaw = tail[tail.length-1];
+          INFO.last.textContent = 'Last: ' + Number(lastRaw.close).toFixed(2);
+        }catch(e){}
+      }, periodMs);
+
+      current.symbol = symbol;
+      current.tf = tf;
+
+      // Search focus UX
+      SEARCH.value = symbol.replace('/', '-');
+
+    }catch(err){
+      console.error(err);
+    }
+  }
+
+  // Search: Enter to load
+  SEARCH.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      const v = (SEARCH.value || '').trim();
+      if(v) load(v, current.tf);
+    }
+  });
+
+  // TF menu toggle + selection
+  TF_BTN.addEventListener('click', ()=>{
+    TF_MENU.classList.toggle('cp-dd--hidden');
+  });
+
+  TF_MENU.addEventListener('mouseleave', ()=> TF_MENU.classList.add('cp-dd--hidden'));
+  document.addEventListener('click', (e)=>{
+    if(!TF_MENU.contains(e.target) && e.target !== TF_BTN){
+      TF_MENU.classList.add('cp-dd--hidden');
+    }
+  });
+  TF_MENU.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tf = btn.getAttribute('data-tf');
+      TF_MENU.classList.add('cp-dd--hidden');
+      load(current.symbol, tf);
+    });
+  });
+
+  // Bootstrap
+  load(DEFAULT_SYMBOL, '1m');
+
+})();
+</script>
