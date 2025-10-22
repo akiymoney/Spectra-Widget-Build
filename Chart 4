@@ -81,26 +81,26 @@
   }
 
   /* HUD shells */
-#cycla-chart-widget .cp-hud{
-  width:987px; margin:0 auto; position:relative;
-  border-radius:12px; border:1px solid rgba(10,20,40,.12);
-  box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
-  overflow:hidden;
-  backdrop-filter:saturate(140%) blur(6px);
-}
+  #cycla-chart-widget .cp-hud{
+    width:987px; margin:0 auto; position:relative;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    overflow:hidden;
+    backdrop-filter:saturate(140%) blur(6px);
+  }
 
-/* Upper chart HUD — soft blue */
-#cycla-chart-widget .cp-chart{
-  height:377px;
-  background:linear-gradient(180deg, #dceeff 0%, #cbe0fa 100%);
-}
+  /* Upper chart HUD — soft blue */
+  #cycla-chart-widget .cp-chart{
+    height:377px;
+    background:linear-gradient(180deg, #dceeff 0%, #cbe0fa 100%);
+  }
 
-/* Lower oscillator HUD — pale green */
-#cycla-chart-widget .cp-osc{
-  height:144px; margin-top:2px;
-  display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(180deg, #d7f8e0 0%, #c8f3d5 100%);
-}
+  /* Lower oscillator HUD — pale green */
+  #cycla-chart-widget .cp-osc{
+    height:144px; margin-top:2px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, #d7f8e0 0%, #c8f3d5 100%);
+  }
 
   #cycla-chart-widget .cp-osc-inner{ font-weight:700; color:#3b4a6b; opacity:.66; }
 
@@ -170,6 +170,10 @@
 
   const DEFAULT_SYMBOL = 'BTC-USD';
 
+  // ► TZ PATCH: force all displayed times to Houston, TX (America/Chicago)
+  const TIMEZONE = 'America/Chicago';
+  const LOCALE = 'en-US';
+
   const INFO = {
     box:  ROOT.querySelector('.cp-info'),
     sym:  ROOT.querySelector('.cp-info .sym'),
@@ -208,11 +212,45 @@
 
   // ───────────────────────── Utilities ─────────────────────────
   const normalizeSymbol = (s) => s.replace(/-/g,'/').toUpperCase(); // BTC-USD → BTC/USD
-  const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000);
+  const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000); // keep UTC from API
   const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 
+  // TZ helpers (used by axis + crosshair)
+  function timeToDate(t){
+    if(typeof t === 'number'){ return new Date(t * 1000); }
+    if(t && typeof t === 'object' && 'timestamp' in t){ return new Date(t.timestamp * 1000); }
+    // Business day format
+    if(t && typeof t === 'object' && 'year' in t){
+      // create at noon UTC to avoid DST edge-jumps when formatting in another TZ
+      return new Date(Date.UTC(t.year, (t.month||1)-1, t.day||1, 12, 0, 0));
+    }
+    return new Date(0);
+  }
+
+  const fmtTime = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, hour:'2-digit', minute:'2-digit' });
+  const fmtTimeSec = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const fmtDay = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, month:'short', day:'2-digit' });
+  const fmtMonth = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, month:'short', year:'2-digit' });
+  const fmtYear = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, year:'numeric' });
+
+  function tickMarkFormatter(t, type){
+    const d = timeToDate(t);
+    switch(type){
+      case 'year': return fmtYear.format(d);
+      case 'month': return fmtMonth.format(d);
+      case 'day_of_month': return fmtDay.format(d);
+      case 'time_with_seconds': return fmtTimeSec.format(d);
+      default: return fmtTime.format(d); // 'time'
+    }
+  }
+
+  function labelTimeFormatter(t){
+    const d = timeToDate(t);
+    return fmtTime.format(d);
+  }
+
+  // Resampling
   function resampleOHLC(bars, seconds){
-    // Aggregate into aligned buckets [.., t0, t0+sec, ...], each with O,H,L,C
     if(!bars.length) return [];
     const out = [];
     const start = Math.floor(bars[0].time / seconds) * seconds;
@@ -238,7 +276,6 @@
   }
 
   // ───────────────────────── SMFT (Spectral Memory) Candles ─────────────────────────
-  // Pine defaults: ξ=3.0, E_sat%=8.0, γ=8.0, ATR length=5 (RMA)
   const SMFT_PARAMS = { xi: 3.0, eSatPct: 8.0, gamma: 8.0, atrLen: 5 };
 
   function trueRange(h, l, prevClose){
@@ -248,32 +285,21 @@
     const c = Math.abs(l - prevClose);
     return Math.max(a, b, c);
   }
+  function rmaNext(prev, x, len){ if(prev == null) return x; return (prev * (len - 1) + x) / len; }
+  function smftAlpha(atrPct, p){ const xiMem = Math.max(1, p.xi / (1 + Math.pow(atrPct / p.eSatPct, p.gamma))); return 2 / (xiMem + 1); }
 
-  function rmaNext(prev, x, len){
-    if(prev == null) return x;
-    return (prev * (len - 1) + x) / len;
-  }
-
-  function smftAlpha(atrPct, p){
-    const xiMem = Math.max(1, p.xi / (1 + Math.pow(atrPct / p.eSatPct, p.gamma)));
-    return 2 / (xiMem + 1);
-  }
-
-  // Build full SMFT series from raw OHLC
   function buildSMFT(bars, p=SMFT_PARAMS){
     let prevClose = null, atrRma = null;
     let oP = null, hP = null, lP = null, cP2 = null;
     const out = [];
-
     for(const b of bars){
       const tr = trueRange(b.high, b.low, prevClose);
       atrRma = rmaNext(atrRma, tr, p.atrLen);
       const atrPct = (atrRma / (b.close || 1)) * 100;
       const alpha = smftAlpha(atrPct, p);
 
-      if(oP == null){
-        oP = b.open; hP = b.high; lP = b.low; cP2 = b.close;
-      }else{
+      if(oP == null){ oP=b.open; hP=b.high; lP=b.low; cP2=b.close; }
+      else{
         oP  = oP  + alpha * (b.open  - oP);
         hP  = hP  + alpha * (b.high  - hP);
         lP  = lP  + alpha * (b.low   - lP);
@@ -281,19 +307,12 @@
       }
       const prevCloseSmft = out.length ? out[out.length - 1].close : cP2;
       const rising = cP2 > prevCloseSmft;
-      out.push({
-        time: b.time,
-        open: oP, high: hP, low: lP, close: cP2,
-        color: rising ? COLORS.up : COLORS.down
-      });
-
+      out.push({ time:b.time, open:oP, high:hP, low:lP, close:cP2, color: rising ? COLORS.up : COLORS.down });
       prevClose = b.close;
     }
-
     return { bars: out, state: { prevClose, atrRma, oP, hP, lP, cP2, params: p } };
   }
 
-  // Incremental step for new/raw tail bars (mutates state)
   function smftStep(state, tailBars){
     const p = state.params || SMFT_PARAMS;
     const out = [];
@@ -303,9 +322,8 @@
       const atrPct = (state.atrRma / (b.close || 1)) * 100;
       const alpha = smftAlpha(atrPct, p);
 
-      if(state.oP == null){
-        state.oP = b.open; state.hP = b.high; state.lP = b.low; state.cP2 = b.close;
-      }else{
+      if(state.oP == null){ state.oP=b.open; state.hP=b.high; state.lP=b.low; state.cP2=b.close; }
+      else{
         state.oP  = state.oP  + alpha * (b.open  - state.oP);
         state.hP  = state.hP  + alpha * (b.high  - state.hP);
         state.lP  = state.lP  + alpha * (b.low   - state.lP);
@@ -314,12 +332,7 @@
       const prevCloseSmft = out.length ? out[out.length - 1].close : state.cP2;
       const rising = state.cP2 > prevCloseSmft;
 
-      out.push({
-        time: b.time,
-        open: state.oP, high: state.hP, low: state.lP, close: state.cP2,
-        color: rising ? COLORS.up : COLORS.down
-      });
-
+      out.push({ time:b.time, open:state.oP, high:state.hP, low:state.lP, close:state.cP2, color: rising ? COLORS.up : COLORS.down });
       state.prevClose = b.close;
     }
     return out;
@@ -332,7 +345,7 @@
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('interval', interval);
     url.searchParams.set('outputsize', String(size));
-    url.searchParams.set('timezone', 'UTC');
+    url.searchParams.set('timezone', 'UTC');         // keep data in UTC
     url.searchParams.set('format', 'JSON');
     url.searchParams.set('order', 'ASC');
     url.searchParams.set('apikey', TD_KEY);
@@ -345,7 +358,7 @@
     }
     // Map to Lightweight Charts format (ascending time)
     return data.values.map(v => ({
-      time:  toEpoch(v.datetime), // seconds
+      time:  toEpoch(v.datetime), // seconds (UTC)
       open:  parseFloat(v.open),
       high:  parseFloat(v.high),
       low:   parseFloat(v.low),
@@ -358,11 +371,9 @@
     if(!spec) throw new Error('Unsupported TF: '+tfKey);
 
     if(spec.kind === 'native'){
-      // Ask for a bit more to ensure smooth viewport
       const native = await fetchTDSeries(symbol, spec.td, clamp(wantBars*1.2, 300, 5000));
       return native;
     }else{
-      // resample from 1min series
       const mult = spec.mult;
       const baseNeeded = clamp(wantBars * mult * 1.3, 600, 8000);
       const base = await fetchTDSeries(symbol, '1min', baseNeeded);
@@ -371,14 +382,13 @@
     }
   }
 
-  // Poll the most recent few bars to update/append
   async function getTail(symbol, tfKey){
     const spec = TF[tfKey];
     if(spec.kind === 'native'){
       const tail = await fetchTDSeries(symbol, spec.td, 3);
       return tail.slice(-3);
     }else{
-      const baseTail = await fetchTDSeries(symbol, '1min', spec.mult*6); // enough to build last 2 buckets
+      const baseTail = await fetchTDSeries(symbol, '1min', spec.mult*6);
       return resampleOHLC(baseTail, spec.mult*60).slice(-2);
     }
   }
@@ -396,7 +406,16 @@
     height: CONTAINER.clientHeight,
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
     rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    timeScale: {
+      borderVisible: false,
+      timeVisible: true,
+      secondsVisible: false,
+      tickMarkFormatter,              // ► TZ PATCH
+    },
+    localization: {
+      locale: LOCALE,
+      timeFormatter: labelTimeFormatter, // ► TZ PATCH (crosshair/tooltip)
+    },
     grid: { vertLines: { color: 'rgba(10,20,40,.10)' }, horzLines: { color: 'rgba(10,20,40,.10)' } },
     crosshair: { mode: 0 },
   });
@@ -443,7 +462,7 @@
       current.smftState = smftFull.state;
       chart.timeScale().fitContent();
 
-      // Fetch instrument meta name (optional, best-effort via quote endpoint)
+      // Fetch instrument meta name (optional)
       try{
         const qURL = new URL('https://api.twelvedata.com/quote');
         qURL.searchParams.set('symbol', symbol);
@@ -453,13 +472,12 @@
         if(q && q.close){ INFO.last.textContent = 'Last: ' + Number(q.close).toFixed(2); }
       }catch(e){ /* non-fatal */ }
 
-      // Start 5s “breathing” poll
+      // Start 5s / 15s “breathing” poll
       const periodMs = (tf === '1H' || tf === '1D' || tf === '1M') ? 15000 : 5000;
       current.poll = setInterval(async ()=>{
         try{
           const tail = await getTail(symbol, tf);
           if(!tail.length) return;
-          // Update/append logically
           const smftTail = smftStep(current.smftState, tail);
           for(const bar of smftTail){
             if(bar.time > current.lastTime){
