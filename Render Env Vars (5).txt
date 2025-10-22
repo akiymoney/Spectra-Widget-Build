@@ -1,0 +1,35 @@
+
+Start command: node app.mjs
+Build command: npm install
+
+ALLOW_ORIGIN = www.cyclaquant.com
+
+AUTO = 1
+
+COINBASE_ACCESS_TOKEN = 2cf106191d6186aad4719012baf27df5
+
+COINBASE_BASE = https://api.coinbase.com
+
+DEFAULT_TZ = America/Chicago
+
+ORDER_USD = 5
+
+PORT = 3000
+
+RETRY_MS = 233
+
+TIMEOUT_MS = 55000
+
+TWELVE_API_KEY = 1079f6f5cca04a5f9f2849e3f7119a30
+
+TD_RPM = 60
+
+Coinbase
+API_KEY_NAME = organizations/6b76bfde-6445-4fe2-9e39-85db54847491/apiKeys/ed72ce59-18f3-41ce-9754-91cef19bf7a3
+PRIVATE_KEY = -----BEGIN EC PRIVATE KEY-----\nMHcCAQEEILhbvkZWCXOCL6fwT0J8U7k8oMHVQ4GOHabfag2NmS/KoAoGCCqGSM49\nAwEHoUQDQgAEPtd1wIg81KCgXll16/riioYG5r6+sKMXGO6UwA+WbGrotBAF7x/W\nGOQAJCncF08xK5wT72WNT6uiVaEsQRibfg==\n-----END EC PRIVATE KEY-----\n
+
+
+
+
+
+
