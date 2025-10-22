@@ -30,6 +30,15 @@ PRIVATE_KEY = -----BEGIN EC PRIVATE KEY-----\nMHcCAQEEILhbvkZWCXOCL6fwT0J8U7k8oM
 
 
 
+CHART CANDLES COLOR SCHEME
+:root{
+  --up: #14B8A6;         /* teal fill */
+  --up-stroke: #0F766E;  /* invisible preferred */
+  --down: #723085;       /* purple fill */
+  --down-stroke: #6D28D9;/* invisible preferred */
+  --wick: #0A1F33;       /* invisible preferred */
+  --fill-alpha: .89;     /* fibonacci looks inspired looks best */
+}
 
 
 
