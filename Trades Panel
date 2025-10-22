@@ -1,145 +1,162 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>CYCLA • Trades Panel (233×523 Container)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    /* ───────────────────────── Theme Tokens ───────────────────────── */
-    :root{
-      --bg:#0a0f1a;
-      --panel:#0e1526;
-      --panel-2:#0c1323;
-      --text:#e6edf7;
-      --muted:#9aa5b1;
-      --border:rgba(255,255,255,.12);
-      --border-soft:rgba(255,255,255,.06);
-      --lift-1:0 16px 48px rgba(1,7,20,.55);
-      --lift-2:0 3px 12px rgba(1,7,20,.35);
-      --rim:0 0 0 1px rgba(255,255,255,.04) inset, 0 1px 0 rgba(255,255,255,.06) inset;
-    }
-    @media (prefers-color-scheme: dark){
-      :root{ --bg:#070c16; }
-    }
+<!-- CYCLA • Trades Widget (255x523) • Squarespace-ready -->
+<div id="cycla-trades-center">
+  <div id="cycla-trades-widget" role="region" aria-label="Trades widget">
+    <!-- Widget label -->
+    <div class="widget-label">Trades</div>
 
-    /* Page frame (demo only: center the main container on the page) */
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      display:grid;
-      place-items:center;
-      background:radial-gradient(1597px 987px at 21% -13%, #0d1730 0%, var(--bg) 55%) fixed;
-      font:13px/1.3 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      color:var(--text);
-    }
-
-    /* ───────────────────────── Main Container (233×523) ───────────────────────── */
-    .spectra-container{
-      width:233px;
-      height:523px;
-      display:grid;
-      place-items:center;     /* centers the widget */
-      overflow:hidden;        /* ensure a clean fit */
-      /* (optional) visualize the container bounds during dev: */
-      /* outline:1px dashed rgba(255,255,255,.15); */
-    }
-
-    /* ───────────────────────── Widget (fills container) ───────────────────────── */
-    .spectra-widget{
-      width:100%;
-      height:100%;
-      border:3px solid var(--border);
-      border-radius:13px;
-      background:
-        linear-gradient(180deg, rgba(18,26,46,.96), rgba(9,14,26,.96)),
-        radial-gradient(987px 610px at 21% -13%, rgba(86,122,255,.04), transparent 40%),
-        var(--panel);
-      box-shadow:var(--lift-1), var(--lift-2), var(--rim);
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      overflow:hidden;
-      user-select:none;
-      will-change:transform;
-      transition:transform .13s ease, box-shadow .2s ease, border-color .2s ease;
-    }
-    .spectra-widget:hover{
-      transform:translateY(-1px);
-      box-shadow:0 21px 55px rgba(1,7,20,.6), var(--lift-2), var(--rim);
-      border-color:rgba(255,255,255,.16);
-    }
-
-    /* Header */
-    .spectra-head{
-      height:34px;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:0 8px 0 13px;
-      background:linear-gradient(180deg, rgba(255,255,255,.05), transparent);
-      border-bottom:1px solid var(--border-soft);
-      letter-spacing:.2px;
-    }
-    .brand{ font-size:13px; font-weight:610; opacity:.8; }
-    .dots{ display:inline-flex; gap:3px; }
-    .dot{
-      width:5px; height:5px; border-radius:55%;
-      background:rgba(255,255,255,.42);
-    }
-
-    /* Body */
-    .spectra-body{
-      position:relative;
-      height:calc(100% - 34px);
-      display:flex; align-items:center; justify-content:center;
-      color:var(--muted);
-      text-align:center;
-      padding:8px;
-    }
-    .spectra-note{
-      opacity:.89;
-      font-size:13px;
-      font-weight:610;
-      text-shadow:0 1px 0 rgba(0,0,0,.6);
-    }
-    .spectra-body::after{
-      content:"";
-      position:absolute; inset:0;
-      pointer-events:none;
-      box-shadow:inset 0 0 144px rgba(0,0,0,.35);
-      border-radius:13px;
-    }
-
-    /* Footer (mini status strip) */
-    .spectra-foot{
-      position:absolute; left:8px; bottom:8px;
-      font-size:13px; color:rgba(230,237,247,.55);
-      padding:2px 5px; border-radius:5px;
-      background:rgba(255,255,255,.04);
-      border:1px solid var(--border-soft);
-      box-shadow:0 1px 0 rgba(255,255,255,.04) inset;
-    }
-
-    .hidden{ display:none !important; }
-  </style>
-</head>
-<body>
-
-  <!-- ───────────────────── Main Container (233 × 523 px) ───────────────────── -->
-  <main class="spectra-container" aria-label="Main container 233×523">
-    <!-- ───────────────── Trades Widget (fills container) ───────────────── -->
-    <aside class="spectra-widget" aria-label="Trades Panel">
-      <header class="spectra-head" aria-label="CYCLA Trades Header">
-        <div class="brand">CYCLA • Trades</div>
-        <div class="dots" aria-hidden="true">
-          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </div>
-      </header>
-
-      <div class="spectra-body">
-        <div class="spectra-note">Trades Panel (fits 233 × 523)</div>
-        <div class="spectra-foot">Ready</div>
+    <!-- HUD stack -->
+    <div class="hud pl">
+      <div class="hud-head">
+        <span class="hud-title">P/L</span>
+        <span class="dots" aria-hidden="true">···</span>
       </div>
-    </aside>
-  </main>
+      <div class="hud-body">
+        <!-- placeholder content -->
+        <div class="metric">
+          <div class="metric-num">+$0.00</div>
+          <div class="metric-sub">Realized / Unrealized</div>
+        </div>
+      </div>
+    </div>
 
-</body>
-</html>
+    <div class="hud watchlist">
+      <div class="hud-head">
+        <span class="hud-title">Watchlist</span>
+        <span class="dots" aria-hidden="true">···</span>
+      </div>
+      <div class="hud-body list">
+        <div class="row"><span>BTC-USD</span><span>—</span></div>
+        <div class="row"><span>ETH-USD</span><span>—</span></div>
+        <div class="row"><span>ADA-USD</span><span>—</span></div>
+      </div>
+    </div>
+
+    <div class="hud trades">
+      <div class="hud-head">
+        <span class="hud-title">Active Trades</span>
+        <span class="dots" aria-hidden="true">···</span>
+      </div>
+      <div class="hud-body list">
+        <div class="row"><span>—</span><span>—</span></div>
+        <div class="row"><span>—</span><span>—</span></div>
+        <div class="row"><span>—</span><span>—</span></div>
+      </div>
+    </div>
+
+    <!-- Bottom buttons -->
+    <div class="btn-row">
+      <button class="btn" type="button" aria-label="Enable Autopilot">AUTO</button>
+      <button class="btn ks" type="button" aria-label="Kill Switch">KS</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── Scoped to this block ───────────────────────── */
+  #cycla-trades-center * { box-sizing: border-box; }
+
+  /* Center the widget perfectly inside the Squarespace code block */
+  #cycla-trades-center{
+    width:100%;
+    min-height:523px;                 /* equals widget height, ensures true centering */
+    display:grid;
+    place-items:center;               /* centers both axes */
+    padding:0; margin:0 auto;
+  }
+
+  /* The widget container: fixed 255x523 */
+  #cycla-trades-widget{
+    width:255px; height:523px;
+    position:relative;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+    border-radius:14px;
+    background:#f6f8fc;
+    border:1px solid rgba(10,20,40,.12);
+    box-shadow:
+      0 18px 55px rgba(8,16,40,.28),
+      0 2px 10px rgba(8,16,40,.12);
+    padding:10px;                     /* inner gutter */
+    overflow:hidden;
+  }
+
+  /* Widget label (top-left) */
+  #cycla-trades-widget .widget-label{
+    position:absolute; top:8px; left:10px;
+    font-weight:700; font-size:12px; letter-spacing:.4px;
+    color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    padding:4px 8px; border-radius:8px;
+    backdrop-filter:saturate(140%) blur(4px);
+    pointer-events:none;
+  }
+
+  /* HUD cards (233x144) */
+  .hud{
+    width:233px; height:144px;
+    margin:0 auto 6px auto;           /* 6px gap between cards */
+    border-radius:16px;
+    border:1px solid rgba(10,20,40,.10);
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    box-shadow: 0 8px 24px rgba(8,16,40,.18);
+  }
+  .hud:last-of-type{ margin-bottom:8px; }
+
+  /* Per-card pastel tints (matching the screenshot vibe) */
+  .hud.pl{        background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%); }
+  .hud.watchlist{ background:linear-gradient(180deg,#f2e6ff 0%,#e6d6ff 100%); }
+  .hud.trades{    background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%); }
+
+  /* HUD head */
+  .hud-head{
+    height:30px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 10px;
+    background:rgba(255,255,255,.55);
+    border-bottom:1px solid rgba(10,20,40,.08);
+    font-weight:700; color:#33415e;
+  }
+  .hud-title{ font-size:12px; }
+  .dots{ letter-spacing:3px; opacity:.6; }
+
+  /* HUD body */
+  .hud-body{ flex:1; padding:10px; display:flex; align-items:center; justify-content:center; }
+
+  .metric{ text-align:center; }
+  .metric-num{ font-size:22px; font-weight:800; margin-bottom:4px; color:#1b2a4a; }
+  .metric-sub{ font-size:11px; color:#4b5a7a; }
+
+  .list{ align-items:stretch; justify-content:flex-start; }
+  .list .row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 8px; margin:3px 0; border-radius:10px;
+    background:rgba(255,255,255,.65);
+    border:1px solid rgba(10,20,40,.06);
+  }
+
+  /* Bottom buttons row */
+  .btn-row{
+    width:100%; display:flex; gap:8px; justify-content:center; align-items:center;
+    position:absolute; left:0; right:0; bottom:8px;
+  }
+  .btn{
+    width:55px; height:34px;
+    border-radius:10px; font-weight:800; letter-spacing:.3px;
+    background:#ffffff; border:2px solid rgba(10,20,40,.15);
+    box-shadow: 0 4px 12px rgba(8,16,40,.12);
+    cursor:pointer;
+  }
+  .btn:hover{ transform:translateY(-1px); transition:transform .08s ease; }
+  .btn:active{ transform:translateY(0); }
+
+  /* Kill Switch: red outline */
+  .btn.ks{
+    background:#fff;
+    border:2px solid #ff4d4f;
+    color:#b0000a;
+  }
+
+  /* Small safety for narrow parent containers */
+  @media (max-width: 260px){ #cycla-trades-widget{ transform:scale(.98); transform-origin:center; } }
+</style>
