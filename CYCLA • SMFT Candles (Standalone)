@@ -1,0 +1,74 @@
+// © Cycla Quant Capital / All Rights Reserved
+// Akiymo Action — Spectral Memory Field Theory (SMFT)
+// Standalone: SMFT Synthetic Candles Only
+
+//@version=6
+indicator("CYCLA • SMFT Candles (Standalone)", overlay=true, max_labels_count=0, max_lines_count=500)
+
+// ───────────────────────── Inputs ─────────────────────────
+grpMem   = "Spectral Memory (SMFT) Parameters"
+xiCosmic = input.float(3.0, "ξ (Cosmic memory cap)", minval=1.0, step=0.25, group=grpMem)
+eSatPct  = input.float(8.0, "E_sat% (ATR% at which memory compresses)", minval=0.1, step=0.1, group=grpMem)
+gamma    = input.float(8.0, "γ (nonlinearity)", minval=0.1, step=0.1, group=grpMem)
+atrLen   = input.int(5, "ATR length (RMA)", minval=1, group=grpMem)
+
+grpSmftC   = "SMFT Candles"
+showSmft   = input.bool(true, "Show SMFT Candles", group=grpSmftC)
+smftBullCol= input.color(color.rgb(94,234,212),                    "Bull body",   group=grpSmftC)
+smftBearCol= input.color(color.rgb(140,61,225),                    "Bear body",   group=grpSmftC)
+smftWickCol= input.color(color.new(color.rgb(230,237,247), 30),    "Wicks",       group=grpSmftC)
+smftBordCol= input.color(color.new(color.rgb(230,237,247), 50),    "Borders",     group=grpSmftC)
+showTB     = input.bool(false, "Show status table (debug)", group=grpSmftC)
+
+// ─────────────────── Core utilities (RMA/ATR%) ───────────────────
+float tr     = ta.tr(true)
+float atr    = ta.rma(tr, atrLen)
+float atrPct = 100.0 * atr / math.max(1e-9, close)
+
+// Effective memory length ξ_mem and variable-alpha EMA
+// ξ_mem = ξ_cosmic / (1 + (ATR% / E_sat%)^γ)  → α = 2 / (ξ_mem + 1)
+float xiMem        = xiCosmic / (1.0 + math.pow(atrPct / eSatPct, gamma))
+float xiMemClamped = math.max(1.0, xiMem)
+float alpha        = 2.0 / (xiMemClamped + 1.0)
+
+// ─────────────────── SMFT synthetic OHLC (same α) ───────────────────
+var float oP  = na
+var float hP  = na
+var float lP  = na
+var float cP2 = na
+
+oP  := na(oP[1])  ? open  : (oP[1]  + alpha * (open  - oP[1]))
+hP  := na(hP[1])  ? high  : (hP[1]  + alpha * (high  - hP[1]))
+lP  := na(lP[1])  ? low   : (lP[1]  + alpha * (low   - lP[1]))
+cP2 := na(cP2[1]) ? close : (cP2[1] + alpha * (close - cP2[1]))
+
+bool smftRising   = cP2 > nz(cP2[1], cP2)
+color smftBodyCol = smftRising ? smftBullCol : smftBearCol
+
+plotcandle(
+     showSmft ? oP  : na,
+     showSmft ? hP  : na,
+     showSmft ? lP  : na,
+     showSmft ? cP2 : na,
+     title       = "SMFT Candles",
+     color       = smftBodyCol,
+     wickcolor   = na,
+     bordercolor = na)
+
+// ─────────────────── (Optional) Status table ───────────────────
+var table tb = na
+if showTB
+    if na(tb)
+        tb := table.new(position.top_right, 1, 5, border_width=1)
+    table.cell(
+         tb, 0, 0,
+         "ξ_mem=" + str.tostring(xiMem, format.mintick) +
+         "\nα="     + str.tostring(alpha, format.mintick) +
+         "\nATR%="  + str.tostring(atrPct, format.mintick) +
+         "\noP/cP2=" + str.tostring(oP, format.mintick) + " / " + str.tostring(cP2, format.mintick) +
+         (barstate.isrealtime ? "\n(realtime)" : "\n(confirmed)"),
+         text_color=color.white, text_size=size.tiny, bgcolor=color.rgb(11,18,34))
+else
+    if not na(tb)
+        table.delete(tb)
+        tb := na
