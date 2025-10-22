@@ -1,0 +1,439 @@
+<!-- CYCLA • Charting Panel (max 987x523) • live TwelveData + TF dropdown -->
+<div id="cycla-chart-center" style="--block-h: 550px;">
+  <div id="cycla-chart-widget" role="region" aria-label="Cycla Spectra" data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
+    <!-- Widget label -->
+    <div class="cp-label">CYCLA Spectra</div>
+
+    <!-- Upper HUD: Chart (987x377) -->
+    <div class="cp-hud cp-chart">
+      <!-- Overlay tools (top-left) -->
+      <div class="cp-tools" aria-label="Chart Tools">
+        <label class="cp-sr-only" for="cp-search">Search</label>
+        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTC-USD, AAPL, EUR-USD" />
+        <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">1m</button>
+        <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
+      </div>
+
+      <!-- Overlay info (top-center, 377x34) -->
+      <div class="cp-info" role="status" aria-live="polite">
+        <span class="sym">BTC-USD</span>
+        <span class="sep">•</span>
+        <span class="name">—</span>
+        <span class="sep">•</span>
+        <span class="last">Last: —</span>
+      </div>
+
+      <!-- Chart canvas root (filled by Lightweight Charts) -->
+      <div class="cp-chart-area" aria-hidden="true">
+        <div id="lc-container" style="position:absolute; inset:0;"></div>
+        <div class="cp-chart-grid"></div>
+      </div>
+
+      <!-- TF dropdown -->
+      <div class="cp-dd cp-dd--hidden" id="cp-tf-menu" role="menu" aria-label="Timeframes">
+        <button data-tf="1m">1m</button>
+        <button data-tf="3m">3m</button>
+        <button data-tf="5m">5m</button>
+        <button data-tf="8m">8m</button>
+        <button data-tf="13m">13m</button>
+        <button data-tf="21m">21m</button>
+        <button data-tf="34m">34m</button>
+        <button data-tf="1H">1H</button>
+        <button data-tf="1D">1D</button>
+        <button data-tf="1M">1M</button>
+      </div>
+    </div>
+
+    <!-- Lower HUD: Indicator (987x144) -->
+    <div class="cp-hud cp-indicator">
+      <div class="cp-ind-area" aria-hidden="true">
+        <div class="cp-ind-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── a11y helper ───────────────────────── */
+  #cycla-chart-widget .cp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* ───────────────────────── isolation + reset ───────────────────────── */
+  #cycla-chart-center * { box-sizing:border-box; }
+  #cycla-chart-center{
+    width:100%;
+    height:var(--block-h, 720px);
+    min-height:523px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+
+  /* Root widget — responsive down, capped at 987x523, transparent */
+  #cycla-chart-widget{
+    position:relative;
+    width:100%;
+    max-width:987px; /* ← requested max width */
+    height:auto;     /* natural height from children (377+2+144=523) */
+    max-height:523px;
+    margin:0 auto;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+  }
+
+  /* Label (mirrored to top-right) */
+  #cycla-chart-widget .cp-label{
+    position:absolute; top:8px; left:auto; right:8px; z-index:4;
+    font-weight:700; font-size:12px; letter-spacing:.4px; color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    padding:4px 8px; border-radius:8px;
+    backdrop-filter:saturate(140%) blur(4px);
+    pointer-events:none;
+  }
+
+  /* ───────────────────────── HUDs (scoped) ───────────────────────── */
+  #cycla-chart-widget .cp-hud{
+    width:100%;
+    max-width:987px;
+    margin:0 auto; border-radius:16px;
+    border:1px solid rgba(10,20,40,.10);
+    overflow:hidden; position:relative;
+    box-shadow: 0 8px 21px rgba(8,16,40,.18);
+  }
+  #cycla-chart-widget .cp-chart{
+    height:377px;
+    background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%);
+  }
+  #cycla-chart-widget .cp-indicator{
+    height:144px; margin-top:2px; /* 377 + 2 + 144 = 523 total */
+    background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%);
+  }
+
+  /* Chart + Indicator grid placeholders */
+  #cycla-chart-widget .cp-chart-area,
+  #cycla-chart-widget .cp-ind-area{ position:absolute; inset:0; }
+  #cycla-chart-widget .cp-chart-grid,
+  #cycla-chart-widget .cp-ind-grid{
+    position:absolute; inset:0; opacity:.5;
+    background-image:
+      linear-gradient(rgba(10,20,40,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(10,20,40,.06) 1px, transparent 1px);
+    background-size: 28px 28px, 28px 28px;
+    pointer-events:none;
+  }
+
+  /* Top-left tools */
+  #cycla-chart-widget .cp-tools{
+    position:absolute; top:8px; left:8px; z-index:5;
+    display:flex; gap:5px; align-items:center;
+  }
+  #cycla-chart-widget .cp-tool{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:34px; border-radius:10px;
+    border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.78);
+    backdrop-filter:saturate(140%) blur(4px);
+    box-shadow:0 5px 13px rgba(8,16,40,.12);
+    font-weight:610; color:#1b2a4a;
+  }
+  #cycla-chart-widget .cp-search{ width:144px; padding:0 8px; font-weight:610; outline:none; }
+  #cycla-chart-widget .cp-search::placeholder{ color:#5a6a8a; opacity:.89; }
+  #cycla-chart-widget .cp-tf{ width:55px; cursor:pointer; }
+  #cycla-chart-widget .cp-w{  width:34px; cursor:pointer; }
+
+  /* Top-center info (377x34) */
+  #cycla-chart-widget .cp-info{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:4;
+    width:377px; height:34px; display:flex; align-items:center; justify-content:center; gap:10px;
+    font-weight:700; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(10,20,40,.14); border-radius:10px;
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+  #cycla-chart-widget .cp-info .sep{ opacity:.5; }
+  #cycla-chart-widget .cp-info .sym{ font-weight:800; }
+  #cycla-chart-widget .cp-info .last{ font-weight:800; color:#1b2a4a; }
+
+  /* TF dropdown (scoped) */
+  #cycla-chart-widget .cp-dd{
+    position:absolute; top:48px; left:8px; z-index:6;
+    display:grid; grid-template-columns: repeat(5, auto); gap:6px;
+    padding:8px; border-radius:10px;
+    background:rgba(255,255,255,.95);
+    border:1px solid rgba(10,20,40,.14);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+  }
+  #cycla-chart-widget .cp-dd.cp-dd--hidden{ display:none; }
+  #cycla-chart-widget .cp-dd > button{
+    padding:6px 8px; border-radius:8px; border:1px solid rgba(10,20,40,.12);
+    background:#fff; font-weight:700; cursor:pointer;
+  }
+  #cycla-chart-widget .cp-dd > button:hover{ background:#eef4ff; }
+</style>
+
+<!-- Lightweight Charts (small, CDN) -->
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<script>
+(()=>{
+
+  // ───────────────────────── Config / Theme ─────────────────────────
+  const ROOT = document.getElementById('cycla-chart-widget');
+  const TD_KEY = ROOT?.dataset?.tdKey || window.TWELVE_DATA_KEY || (window.CYCLA_VARS && window.CYCLA_VARS.TD_API_KEY) || "";
+  const DEFAULT_SYMBOL = (ROOT?.querySelector('.cp-info .sym')?.textContent || 'BTC-USD').trim();
+  const INFO = {
+    sym: ROOT.querySelector('.cp-info .sym'),
+    name: ROOT.querySelector('.cp-info .name'),
+    last: ROOT.querySelector('.cp-info .last')
+  };
+  const TF_BTN = ROOT.querySelector('.cp-tf');
+  const TF_MENU = ROOT.querySelector('#cp-tf-menu');
+  const SEARCH  = ROOT.querySelector('#cp-search');
+  const W_BTN   = ROOT.querySelector('.cp-w');
+
+  // Chart theme (teal/purple)
+  const COLORS = {
+    up: '#14B8A6',
+    upBorder: '#0F766E',
+    down: '#723085',
+    downBorder: '#6D28D9',
+    wick: '#0A1F33',
+    grid: 'rgba(10,20,40,.10)',
+    text: '#1b2a4a',
+  };
+
+  // TF map: native vs resample (from 1min)
+  const TF = {
+    '1m': { kind:'native', td:'1min' },
+    '3m': { kind:'resample', base:'1min', mult:3 },
+    '5m': { kind:'native', td:'5min' },
+    '8m': { kind:'resample', base:'1min', mult:8 },
+    '13m':{ kind:'resample', base:'1min', mult:13 },
+    '21m':{ kind:'resample', base:'1min', mult:21 },
+    '34m':{ kind:'resample', base:'1min', mult:34 },
+    '1H': { kind:'native', td:'1h' },
+    '1D': { kind:'native', td:'1day' },
+    '1M': { kind:'native', td:'1month' },
+  };
+
+  // ───────────────────────── Utilities ─────────────────────────
+  const normalizeSymbol = (s) => s.replace(/-/g,'/').toUpperCase(); // BTC-USD → BTC/USD
+  const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000);
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+
+  function resampleOHLC(bars, seconds){
+    // Aggregate into aligned buckets [.., t0, t0+sec, ...], each with O,H,L,C
+    if(!bars.length) return [];
+    const out = [];
+    const start = Math.floor(bars[0].time / seconds) * seconds;
+    let bucketStart = start, bucketEnd = start + seconds;
+    let cur = null;
+
+    for(const b of bars){
+      while(b.time >= bucketEnd){
+        if(cur){ out.push(cur); cur = null; }
+        bucketStart = bucketEnd;
+        bucketEnd += seconds;
+      }
+      if(!cur){
+        cur = { time: bucketStart, open:b.open, high:b.high, low:b.low, close:b.close };
+      }else{
+        cur.high = Math.max(cur.high, b.high);
+        cur.low  = Math.min(cur.low,  b.low);
+        cur.close= b.close;
+      }
+    }
+    if(cur) out.push(cur);
+    return out;
+  }
+
+  // ───────────────────────── TwelveData fetchers ─────────────────────────
+  async function fetchTDSeries(symbol, interval, size=1000){
+    if(!TD_KEY){ throw new Error('Missing TwelveData API key. Add data-td-key on #cycla-chart-widget.'); }
+    const url = new URL('https://api.twelvedata.com/time_series');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('interval', interval);
+    url.searchParams.set('outputsize', String(size));
+    url.searchParams.set('timezone', 'UTC');
+    url.searchParams.set('format', 'JSON');
+    url.searchParams.set('order', 'ASC');
+    url.searchParams.set('apikey', TD_KEY);
+
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if(data.status === 'error' || !data.values){
+      const msg = data.message || 'TwelveData error';
+      throw new Error(msg);
+    }
+
+    // Map to Lightweight Charts format (ascending time)
+    return data.values.map(v => ({
+      time:  toEpoch(v.datetime), // seconds
+      open:  parseFloat(v.open),
+      high:  parseFloat(v.high),
+      low:   parseFloat(v.low),
+      close: parseFloat(v.close),
+    }));
+  }
+
+  async function getBars(symbol, tfKey, wantBars=600){
+    const spec = TF[tfKey];
+    if(!spec) throw new Error('Unsupported TF: '+tfKey);
+
+    if(spec.kind === 'native'){
+      // Ask for a bit more to ensure smooth viewport
+      const native = await fetchTDSeries(symbol, spec.td, clamp(wantBars*1.2, 300, 5000));
+      return native;
+    }else{
+      // resample from 1min series
+      const mult = spec.mult;
+      const baseNeeded = clamp(wantBars * mult * 1.3, 600, 8000);
+      const base = await fetchTDSeries(symbol, '1min', baseNeeded);
+      const out = resampleOHLC(base, mult*60);
+      return out.slice(-wantBars);
+    }
+  }
+
+  // Poll the most recent few bars to update/append
+  async function getTail(symbol, tfKey){
+    const spec = TF[tfKey];
+    if(spec.kind === 'native'){
+      const tail = await fetchTDSeries(symbol, spec.td, 3);
+      return tail.slice(-3);
+    }else{
+      const baseTail = await fetchTDSeries(symbol, '1min', spec.mult*6); // enough to build last 2 buckets
+      return resampleOHLC(baseTail, spec.mult*60).slice(-2);
+    }
+  }
+
+  // ───────────────────────── Chart bootstrap ─────────────────────────
+  const LC = window.LightweightCharts;
+  const CONTAINER = ROOT.querySelector('#lc-container');
+  if(!LC || !LC.createChart){
+    CONTAINER.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#1b2a4a;font-weight:700;">Chart library failed to load.</div>';
+    return;
+  }
+
+  const chart = LC.createChart(CONTAINER, {
+    width:  CONTAINER.clientWidth,
+    height: CONTAINER.clientHeight,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    grid: { vertLines: { color: 'rgba(10,20,40,.10)' }, horzLines: { color: 'rgba(10,20,40,.10)' } },
+    crosshair: { mode: 0 },
+  });
+
+  const series = chart.addCandlestickSeries({
+    upColor: COLORS.up, downColor: COLORS.down,
+    borderUpColor: COLORS.upBorder, borderDownColor: COLORS.downBorder,
+    wickUpColor: COLORS.wick, wickDownColor: COLORS.wick,
+  });
+
+  // Resize observer to keep exact 987×377 fit
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: CONTAINER.clientWidth, height: CONTAINER.clientHeight });
+  }).observe(CONTAINER);
+
+  // Optional wick toggle
+  let wicksOn = true;
+  W_BTN.addEventListener('click', ()=>{
+    wicksOn = !wicksOn;
+    series.applyOptions({
+      wickUpColor: wicksOn ? COLORS.wick : 'transparent',
+      wickDownColor: wicksOn ? COLORS.wick : 'transparent',
+    });
+  });
+
+  // ───────────────────────── Load symbol + TF ─────────────────────────
+  let current = { symbol: normalizeSymbol(DEFAULT_SYMBOL), tf:'1m', poll:null, lastTime:0 };
+
+  async function load(symbolInput, tfInput){
+    try{
+      const symbol = normalizeSymbol(symbolInput || current.symbol);
+      const tf     = tfInput || current.tf;
+      if(current.poll){ clearInterval(current.poll); current.poll = null; }
+
+      TF_BTN.textContent = tf;
+      INFO.sym.textContent = symbol.replace('/', '-');
+      INFO.name.textContent = '—';
+      INFO.last.textContent = 'Last: —';
+
+      const bars = await getBars(symbol, tf, 600);
+      series.setData(bars);
+      current.lastTime = bars.length ? bars[bars.length-1].time : 0;
+      chart.timeScale().fitContent();
+
+      // Fetch instrument meta name (optional, best-effort via quote endpoint)
+      try{
+        const qURL = new URL('https://api.twelvedata.com/quote');
+        qURL.searchParams.set('symbol', symbol);
+        qURL.searchParams.set('apikey', TD_KEY);
+        const q = await fetch(qURL).then(r=>r.json());
+        if(q && q.name){ INFO.name.textContent = q.name; }
+        if(q && q.close){ INFO.last.textContent = 'Last: ' + Number(q.close).toFixed(2); }
+      }catch(e){ /* non-fatal */ }
+
+      // Start 5s “breathing” poll
+      const periodMs = (tf === '1H' || tf === '1D' || tf === '1M') ? 15000 : 5000;
+      current.poll = setInterval(async ()=>{
+        try{
+          const tail = await getTail(symbol, tf);
+          if(!tail.length) return;
+          // Update/append logically
+          for(const bar of tail){
+            if(bar.time > current.lastTime){
+              series.update(bar);
+              current.lastTime = bar.time;
+            }else if(bar.time === current.lastTime){
+              series.update(bar);
+            }
+          }
+          const lastBar = tail[tail.length-1];
+          INFO.last.textContent = 'Last: ' + Number(lastBar.close).toFixed(2);
+        }catch(e){}
+      }, periodMs);
+
+      current.symbol = symbol;
+      current.tf = tf;
+
+    }catch(err){
+      INFO.name.textContent = 'Error';
+      INFO.last.textContent = (err && err.message) ? ('ERR: ' + err.message) : 'ERR';
+      console.error(err);
+    }
+  }
+
+  // Search: Enter to load
+  SEARCH.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      const v = (SEARCH.value || '').trim();
+      if(v) load(v, current.tf);
+    }
+  });
+
+  // TF menu toggle + selection
+  TF_BTN.addEventListener('click', ()=>{
+    TF_MENU.classList.toggle('cp-dd--hidden');
+  });
+  document.addEventListener('click', (e)=>{
+    if(!TF_MENU.contains(e.target) && e.target !== TF_BTN){
+      TF_MENU.classList.add('cp-dd--hidden');
+    }
+  });
+  TF_MENU.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tf = btn.getAttribute('data-tf');
+      TF_MENU.classList.add('cp-dd--hidden');
+      load(current.symbol, tf);
+    });
+  });
+
+  // Bootstrap
+  load(DEFAULT_SYMBOL, '1m');
+
+})();
+</script>
