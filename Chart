@@ -1,8 +1,8 @@
-<!-- CYCLA • Charting Panel (1008x523) • collision-proof + Squarespace-ready -->
+<!-- CYCLA • Charting Panel (max 987x523) • collision-proof + Squarespace-ready -->
 <div id="cycla-chart-center" style="--block-h: 550px;">
-  <div id="cycla-chart-widget" role="region" aria-label="Charting Panel">
+  <div id="cycla-chart-widget" role="region" aria-label="Cycla Spectra">
     <!-- Widget label -->
-    <div class="cp-label">Charting Panel</div>
+    <div class="cp-label">CYCLA Spectra</div>
 
     <!-- Upper HUD: Chart (987x377) -->
     <div class="cp-hud cp-chart">
@@ -52,19 +52,22 @@
     margin:0 auto; padding:0; position:relative;
   }
 
-  /* Root widget (fixed 1008x523) */
+  /* Root widget — responsive down, capped at 987x523, transparent */
   #cycla-chart-widget{
-    width:1008px; height:523px; position:relative; overflow:hidden;
-    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:#0b1220;
-    border-radius:14px; background:#f6f8fc;
-    border:1px solid rgba(10,20,40,.12);
-    box-shadow: 0 18px 55px rgba(8,16,40,.28), 0 2px 10px rgba(8,16,40,.12);
+    position:relative;
+    width:100%;
+    max-width:987px;   /* ← requested max width */
+    height:auto;       /* natural height from children (377+2+144=523) */
+    max-height:523px;  /* ← requested max height */
+    margin:0 auto;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
   }
 
-  /* Label */
+  /* Label (mirrored to top-right) */
   #cycla-chart-widget .cp-label{
-    position:absolute; top:8px; left:8px; z-index:4;
+    position:absolute; top:8px; left:auto; right:8px; z-index:4;
     font-weight:700; font-size:12px; letter-spacing:.4px; color:#3b4a6b;
     background:rgba(255,255,255,.75);
     border:1px solid rgba(10,20,40,.12);
@@ -75,7 +78,9 @@
 
   /* ───────────────────────── HUDs (scoped) ───────────────────────── */
   #cycla-chart-widget .cp-hud{
-    width:987px; margin:0 auto; border-radius:16px;
+    width:100%;
+    max-width:987px;            /* keep HUDs within widget cap */
+    margin:0 auto; border-radius:16px;
     border:1px solid rgba(10,20,40,.10);
     overflow:hidden; position:relative;
     box-shadow: 0 8px 24px rgba(8,16,40,.18);
@@ -85,7 +90,7 @@
     background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%);
   }
   #cycla-chart-widget .cp-indicator{
-    height:144px; margin-top:2px;
+    height:144px; margin-top:2px; /* 377 + 2 + 144 = 523 total */
     background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%);
   }
 
@@ -134,7 +139,7 @@
   #cycla-chart-widget .cp-info .sym{ font-weight:800; }
   #cycla-chart-widget .cp-info .last{ font-weight:800; color:#1b2a4a; }
 
-  /* Safety nudge on very narrow embeds (keeps aspect) */
+  /* Safety nudge on very narrow embeds */
   @media (max-width: 1020px){
     #cycla-chart-widget{ transform:scale(.98); transform-origin:center; }
   }
