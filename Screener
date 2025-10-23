@@ -1,6 +1,6 @@
 <!-- CYCLA • Screener Panel (233x523) • TwelveData + SMFT scan -->
 <div id="cycla-screener-center" style="--block-h:523px;">
-  <div id="cycla-screener-widget" role="region" aria-label="Cycla Screener"
+  <div id="cycla-screener-widget" role="region" aria-label="CYCLA Screener"
        data-default-asset="All" data-rpm="48"
        data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
     <!-- Title (invisible label; keeps layout consistent) -->
@@ -323,24 +323,46 @@ async function fetchSeries(symbol, interval, size=600){
   return j.values.map(v=>({ time:toEpoch(v.datetime), open:+v.open, high:+v.high, low:+v.low, close:+v.close }));
 }
 
-// Single TF map + the fixed multi-TF set for "3+"
+// ── Timeframe map: 10m is derived from 5min (TwelveData has no 10min) ─────
 const TF_MAP = {
-  '10m': { td:'10min', native:true },
-  '1H' : { td:'1h',    native:true },
-  '1D' : { td:'1day',  native:true },
-  '1W' : { td:'1week', native:true },
-  '1M' : { td:'1month',native:true }
+  '10m': { base: '5min', derived: true },
+  '1H' : { td:   '1h',   derived: false },
+  '1D' : { td:   '1day', derived: false },
+  '1W' : { td:   '1week',derived: false },
+  '1M' : { td:   '1month',derived: false }
 };
 const MULTI_TFS = ['10m','1H','1D','1W','1M'];
 
+// ── Resample utilities: 5min → 10min by pairing adjacent bars ─────────────
+function resample5to10(barsAsc){
+  const out = [];
+  for(let i=0; i+1<barsAsc.length; i+=2){
+    const a = barsAsc[i], b = barsAsc[i+1];
+    out.push({
+      time:  b.time,                 // stamp at end of 10m bucket
+      open:  a.open,
+      high:  Math.max(a.high, b.high),
+      low:   Math.min(a.low,  b.low),
+      close: b.close
+    });
+  }
+  return out;
+}
+
 async function oscAboveZero(symbol, tf){
-  const spec = TF_MAP[tf];
-  if(!spec) return false;
   try{
-    const bars = await fetchSeries(normalizeSymbol(symbol), spec.td, 260);
+    let bars;
+    if(tf === '10m'){ // derive 10m from 5min
+      const base5 = await fetchSeries(normalizeSymbol(symbol), '5min', 520); // ~260 10m bars
+      bars = resample5to10(base5);
+    }else{
+      const spec = TF_MAP[tf];
+      if(!spec) return false;
+      bars = await fetchSeries(normalizeSymbol(symbol), spec.td, 260);
+    }
     const osc  = buildSMFTCloseOsc(bars);
     const last = osc[osc.length-1];
-    return last && last.value > 0;
+    return !!(last && last.value > 0);
   }catch(e){
     ecu('warn', `${symbol} ${tf}: ${e.message||e}`);
     return false;
@@ -427,10 +449,11 @@ async function scanUniverse(kind, stopToken){
   const tfAtStart = currentTF();
   const multi = (tfAtStart === '3plus');
 
-  setBanner(multi
-    ? `Loaded ${syms.length} ${kind}. Mode: 3+ across {${MULTI_TFS.join(',')}}`
-    : `Loaded ${syms.length} ${kind}. TF: ${tfAtStart}`
-  );
+  const hdr = (tfAtStart==='3plus') ? `3+ {${MULTI_TFS.join(',')}}`
+            : (tfAtStart==='10m') ? '10m (derived)'
+            : tfAtStart;
+
+  setBanner(`Loaded ${syms.length} ${kind}. TF: ${hdr}`);
   ecu('ok', `Universe(${kind}) size=${syms.length}`);
 
   RESULTS.innerHTML = '';
@@ -469,8 +492,10 @@ async function scanUniverse(kind, stopToken){
 
       if(scanned%25===0){
         const dt = ((Date.now()-startTs)/1000)|0;
-        const hdr = (currentTF()==='3plus') ? `3+ {${MULTI_TFS.join(',')}}` : currentTF();
-        setBanner(`scan: ${kind} • tf=${hdr} • ${scanned}/${syms.length} • hits=${hits} • t=${dt}s`);
+        const h = (currentTF()==='3plus') ? `3+ {${MULTI_TFS.join(',')}}`
+                : (currentTF()==='10m') ? '10m (derived)'
+                : currentTF();
+        setBanner(`scan: ${kind} • tf=${h} • ${scanned}/${syms.length} • hits=${hits} • t=${dt}s`);
       }
     }catch(e){
       ecu('warn', `${sym}: ${e.message||e}`);
@@ -527,7 +552,7 @@ BTN_STOP.addEventListener('click', ()=>{
 
 // Chart -> ECU error/status (optional)
 window.CYCLA.bus.addEventListener('cycla:ecu', (e)=>{
-  const { level='ok', msg='' } = e.detail||{};
+  const { level='ok', msg='' } = (e && e.detail) || {};
   ecu(level, msg);
 });
 })();
