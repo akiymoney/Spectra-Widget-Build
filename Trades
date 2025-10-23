@@ -1,170 +1,195 @@
-<!-- CYCLA • Trades Widget (255x523) • Squarespace-ready -->
-<div id="cycla-trades-center" style="--block-h: 550px;">
-  <div id="cycla-trades-widget" role="region" aria-label="Trades widget">
-    <!-- Widget label -->
-    <div class="widget-label">Trades</div>
+<!-- CYCLA • Trades Panel (233x523) -->
+<div id="cycla-trades-center" style="--block-h:523px;">
+  <div id="cycla-trades-widget" role="region" aria-label="CYCLA Trades Panel">
+    <div class="tp-label" aria-hidden="true"></div>
 
-    <!-- HUD stack -->
-    <div class="hud pl">
-      <div class="hud-head">
-        <span class="hud-title">P/L</span>
-        <span class="dots" aria-hidden="true">···</span>
-      </div>
-      <div class="hud-body">
-        <div class="metric">
-          <div class="metric-num">+$0.00</div>
-          <div class="metric-sub">Realized / Unrealized</div>
-        </div>
-      </div>
-    </div>
+    <!-- Top HUD: P/L (233x89) -->
+    <section class="tp-hud tp-pl" aria-label="P/L">
+      <header class="tp-hdr">P/L</header>
+      <div class="tp-pl-body" id="tp-pl-body">—</div>
+    </section>
 
-    <div class="hud watchlist">
-      <div class="hud-head">
-        <span class="hud-title">Watchlist</span>
-        <span class="dots" aria-hidden="true">···</span>
-      </div>
-      <div class="hud-body list">
-        <div class="row"><span>BTC-USD</span><span>—</span></div>
-        <div class="row"><span>ETH-USD</span><span>—</span></div>
-        <div class="row"><span>ADA-USD</span><span>—</span></div>
-      </div>
-    </div>
+    <!-- Second HUD: Watchlist (233x144) -->
+    <section class="tp-hud tp-watch" aria-label="Watchlist">
+      <header class="tp-hdr">Watchlist</header>
+      <div class="tp-list" id="tp-watch" role="listbox" aria-label="Watchlist symbols"></div>
+    </section>
 
-    <div class="hud trades">
-      <div class="hud-head">
-        <span class="hud-title">Active Trades</span>
-        <span class="dots" aria-hidden="true">···</span>
-      </div>
-      <div class="hud-body list">
-        <div class="row"><span>—</span><span>—</span></div>
-        <div class="row"><span>—</span><span>—</span></div>
-        <div class="row"><span>—</span><span>—</span></div>
-      </div>
-    </div>
+    <!-- Third HUD: Active Trades (233x144) -->
+    <section class="tp-hud tp-active" aria-label="Active Trades">
+      <header class="tp-hdr">Active Trades</header>
+      <div class="tp-list" id="tp-active" role="listbox" aria-label="Active trades symbols"></div>
+    </section>
 
-    <!-- Bottom buttons -->
-    <div class="btn-row">
-      <button class="btn" type="button" aria-label="Enable Autopilot">AUTO</button>
-      <button class="btn ks" type="button" aria-label="Kill Switch">KS</button>
+    <!-- Bottom button row -->
+    <div class="tp-row">
+      <button id="tp-auto" class="tp-btn" type="button" title="Move all Watchlist → Active">AUTO</button>
+      <button id="tp-ks" class="tp-btn tp-btn--danger" type="button" title="Clear Active Trades">KS</button>
     </div>
   </div>
 </div>
 
 <style>
-  /* ───────────────────────── Scoped to this block ───────────────────────── */
-  #cycla-trades-center * { box-sizing: border-box; }
-
-  /* Center the widget perfectly inside the Squarespace code block
-     Adjust --block-h inline if your block is taller/shorter. */
+  #cycla-trades-center *{ box-sizing:border-box; }
   #cycla-trades-center{
-    width:100%;
-    height: var(--block-h, 720px);    /* visual height of the Code block */
-    min-height:523px;                 /* never smaller than the widget */
-    display:flex;
-    align-items:center;               /* vertical center */
-    justify-content:center;           /* horizontal center */
-    margin:0 auto; padding:0;
-    position:relative;
+    width:100%; height:var(--block-h,523px);
+    display:flex; align-items:center; justify-content:center; margin:0 auto; padding:0;
   }
-
-  /* The widget container: fixed 255x523 */
+  /* Root 233×523 */
   #cycla-trades-widget{
-    width:255px; height:523px;
-    position:relative;
-    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:#0b1220;
-    border-radius:14px;
-    background:#f6f8fc;
-    border:1px solid rgba(10,20,40,.12);
-    box-shadow:
-      0 18px 55px rgba(8,16,40,.28),
-      0 2px 10px rgba(8,16,40,.12);
-    padding:10px;                     /* inner gutter */
-    overflow:hidden;
+    position:relative; width:233px; height:523px; margin:0 auto;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
+    font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220; overflow:hidden; padding:6px;
+  }
+  .tp-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
+
+  .tp-hud{
+    width:221px; border:1px solid rgba(10,20,40,.12); border-radius:12px;
+    background:#fff; margin:0 auto 6px auto; overflow:hidden;
+  }
+  .tp-pl{ height:89px; display:flex; flex-direction:column; }
+  .tp-watch, .tp-active{ height:144px; display:flex; flex-direction:column; }
+
+  .tp-hdr{
+    height:28px; display:flex; align-items:center; padding:0 8px;
+    font-weight:800; color:#33415e; background:rgba(255,255,255,.78);
+    border-bottom:1px solid rgba(10,20,40,.10);
+  }
+  .tp-pl-body{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:16px; color:#1b2a4a;
+  }
+  .tp-list{
+    flex:1; padding:6px; overflow:auto;
+    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
   }
 
-  /* Widget label (top-left) */
-  #cycla-trades-widget .widget-label{
-    position:absolute; top:8px; left:10px;
-    font-weight:700; font-size:12px; letter-spacing:.4px;
-    color:#3b4a6b;
-    background:rgba(255,255,255,.75);
-    border:1px solid rgba(10,20,40,.12);
-    padding:4px 8px; border-radius:8px;
-    backdrop-filter:saturate(140%) blur(4px);
-    pointer-events:none;
+  /* Rows (symbols) */
+  .tp-row-item{
+    display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;
+    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
+    border:1px solid rgba(10,20,40,.12); cursor:pointer; user-select:none;
+  }
+  .tp-row-item:hover{ background:#eef7ff; }
+  .tp-sym{ font-weight:800; color:#1b2a4a; }
+  .tp-mini{ display:flex; gap:4px; }
+  .tp-chip{
+    border:1px solid rgba(10,20,40,.12); border-radius:999px; padding:2px 6px;
+    font-weight:800; font-size:10px; background:#f8fafc; color:#33415e;
   }
 
-  /* HUD cards (233x144) */
-  .hud{
-    width:233px; height:144px;
-    margin:0 auto 6px auto;           /* 6px gap between cards */
-    border-radius:16px;
-    border:1px solid rgba(10,20,40,.10);
-    overflow:hidden;
-    display:flex; flex-direction:column;
-    box-shadow: 0 8px 24px rgba(8,16,40,.18);
+  /* Bottom buttons (exact sizes) */
+  .tp-row{
+    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; justify-content:flex-start; align-items:center;
   }
-  .hud:last-of-type{ margin-bottom:8px; }
-
-  /* Pastel tints like the reference */
-  .hud.pl{        background:linear-gradient(180deg,#dff0ff 0%,#cfe6ff 100%); }
-  .hud.watchlist{ background:linear-gradient(180deg,#f2e6ff 0%,#e6d6ff 100%); }
-  .hud.trades{    background:linear-gradient(180deg,#dbffe7 0%,#c9ffd9 100%); }
-
-  /* HUD head */
-  .hud-head{
-    height:30px; display:flex; align-items:center; justify-content:space-between;
-    padding:0 10px;
-    background:rgba(255,255,255,.55);
-    border-bottom:1px solid rgba(10,20,40,.08);
-    font-weight:700; color:#33415e;
+  .tp-btn{
+    width:55px; height:34px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95); box-shadow:0 13px 21px rgba(8,16,40,.18);
+    color:#1b2a4a; font-weight:800; cursor:pointer;
   }
-  .hud-title{ font-size:12px; }
-  .dots{ letter-spacing:3px; opacity:.6; }
-
-  /* HUD body */
-  .hud-body{ flex:1; padding:10px; display:flex; align-items:center; justify-content:center; }
-  .metric{ text-align:center; }
-  .metric-num{ font-size:22px; font-weight:800; margin-bottom:4px; color:#1b2a4a; }
-  .metric-sub{ font-size:11px; color:#4b5a7a; }
-
-  .list{ align-items:stretch; justify-content:flex-start; }
-  .list .row{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:6px 8px; margin:3px 0; border-radius:10px;
-    background:rgba(255,255,255,.65);
-    border:1px solid rgba(10,20,40,.06);
-  }
-
-  /* Bottom buttons row */
-  .btn-row{
-    width:100%; display:flex; gap:8px; justify-content:center; align-items:center;
-    position:absolute; left:0; right:0; bottom:8px;
-  }
-  .btn{
-    width:55px; height:34px;
-    display:flex; align-items:center; justify-content:center; /* <-- centers text */
-    line-height:1;                                          /* prevents vertical overflow */
-    padding:0;                                              /* keeps label centered */
-    border-radius:10px; font-weight:800; font-size:12px; letter-spacing:.2px;
-    background:#ffffff; border:2px solid rgba(10,20,40,.15);
-    box-shadow: 0 4px 12px rgba(8,16,40,.12);
-    cursor:pointer;
-    user-select:none;
-  }
-  .btn:hover{ transform:translateY(-1px); transition:transform .08s ease; }
-  .btn:active{ transform:translateY(0); }
-
-  /* Kill Switch: red outline */
-  .btn.ks{
-    background:#fff;
-    border:2px solid #ff4d4f;
-    color:#b0000a;
-  }
-
-  /* Safety for super narrow columns */
-  @media (max-width: 260px){
-    #cycla-trades-widget{ transform:scale(.98); transform-origin:center; }
+  .tp-btn--danger{
+    border-color:#dc2626; color:#7a0a0a;
   }
 </style>
+
+<script>
+(()=>{
+  const ROOT = document.getElementById('cycla-trades-widget');
+
+  // Global bus (same one used by Screener/Chart)
+  window.CYCLA = window.CYCLA || {};
+  window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+
+  // Elements
+  const WATCH  = ROOT.querySelector('#tp-watch');
+  const ACTIVE = ROOT.querySelector('#tp-active');
+  const BTN_AUTO = ROOT.querySelector('#tp-auto');
+  const BTN_KS   = ROOT.querySelector('#tp-ks');
+
+  // Local state (symbols as UI-formatted strings like BTCUSD, AAPL, EURUSD)
+  const watchSet  = new Set();
+  const activeSet = new Set();
+
+  // Helpers
+  function uiNormalize(sym){
+    return String(sym||'').toUpperCase().replace(/[\/\s]/g,'').replace(/-+/g,'-');
+  }
+  function makeRow(sym, where){
+    const row = document.createElement('div');
+    row.className = 'tp-row-item';
+    row.setAttribute('role','option');
+    row.dataset.sym = sym;
+
+    const left = document.createElement('div');
+    left.className = 'tp-sym';
+    left.textContent = sym;
+
+    const right = document.createElement('div');
+    right.className = 'tp-mini';
+    // tiny chips to indicate list type (for visual context only)
+    const chip = document.createElement('div');
+    chip.className = 'tp-chip';
+    chip.textContent = where;
+    right.appendChild(chip);
+
+    row.appendChild(left); row.appendChild(right);
+
+    // Clicking any row loads that symbol on the chart (same as Screener)
+    row.addEventListener('click', ()=>{
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
+    });
+
+    return row;
+  }
+  function renderList(container, set, where){
+    container.innerHTML = '';
+    for(const sym of set){
+      container.appendChild(makeRow(sym, where));
+    }
+  }
+
+  // PUBLIC API via bus:
+  // 1) Add to Watchlist (from Chart W button or any producer)
+  window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+    const sym = uiNormalize((e.detail||{}).symbol || '');
+    if(!sym) return;
+    if(activeSet.has(sym)) return;                  // if already active, ignore
+    if(!watchSet.has(sym)) watchSet.add(sym);
+    renderList(WATCH, watchSet, 'Watch');
+  });
+
+  // Buttons:
+  // AUTO — move all Watchlist → Active Trades
+  BTN_AUTO.addEventListener('click', ()=>{
+    if(watchSet.size === 0) return;
+    for(const s of watchSet){ activeSet.add(s); }
+    watchSet.clear();
+    renderList(WATCH, watchSet, 'Watch');
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // KS — clear Active Trades
+  BTN_KS.addEventListener('click', ()=>{
+    activeSet.clear();
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // Optional: accept symbols from Screener directly if it prefers a different event
+  // (No-Op unless someone dispatches it; harmless to keep parity.)
+  window.CYCLA.bus.addEventListener('cycla:trades:add', (e)=>{
+    const sym = uiNormalize((e.detail||{}).symbol || '');
+    if(!sym) return;
+    if(activeSet.has(sym)) return;
+    watchSet.add(sym);
+    renderList(WATCH, watchSet, 'Watch');
+  });
+
+  // Initial paints
+  renderList(WATCH, watchSet, 'Watch');
+  renderList(ACTIVE, activeSet, 'Active');
+})();
+</script>
