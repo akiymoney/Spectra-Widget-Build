@@ -1,7 +1,8 @@
 <!-- CYCLA • Screener Panel (233x523) • TwelveData + SMFT scan -->
 <div id="cycla-screener-center" style="--block-h:523px;">
   <div id="cycla-screener-widget" role="region" aria-label="Cycla Screener"
-       data-default-asset="All" data-mode="any" data-rpm="48">
+       data-default-asset="All" data-mode="any" data-rpm="48"
+       data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
     <!-- Title (invisible label; keeps layout consistent) -->
     <div class="cs-label" aria-hidden="true">CYCLA Screener</div>
 
@@ -163,8 +164,14 @@
 (()=>{
   // ───────────────────────── Shared wiring / discovery ─────────────────────────
   const CS_ROOT   = document.getElementById('cycla-screener-widget');
-  const CHART_ROOT= document.getElementById('cycla-chart-widget'); // discover chart for key + bus
-  const TD_KEY    = (CHART_ROOT && CHART_ROOT.getAttribute('data-td-key')) || ''; // same key as chart
+
+const CHART_ROOT = document.getElementById('cycla-chart-widget'); // discover chart for key + bus
+const TD_KEY =
+  CS_ROOT.getAttribute('data-td-key') ||                      // 1) allow screener to carry the key itself
+  (CHART_ROOT && CHART_ROOT.getAttribute('data-td-key')) ||   // 2) otherwise pick it off the chart
+  (window.CYCLA && window.CYCLA.TD_KEY) ||                    // 3) or a global, if you set one
+  '';
+
   const DEFAULT_ASSET = CS_ROOT.getAttribute('data-default-asset') || 'All';
   const DEFAULT_MODE  = CS_ROOT.getAttribute('data-mode') || 'any';
   const RPM_CAP  = Math.max(1, parseInt(CS_ROOT.getAttribute('data-rpm')||'48',10)); // 80% Grow by default
