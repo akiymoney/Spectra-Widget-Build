@@ -609,8 +609,23 @@ const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
     return;
   }
 
-// Price chart
-const chart = LC.createChart(PRICE_HOST, { /* …same options… */ });
+// Price chart — transparent canvas so the cp-chart gradient is visible
+const chart = LC.createChart(PRICE_HOST, {
+  width:  PRICE_HOST.clientWidth,
+  height: PRICE_HOST.clientHeight,
+  layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
+  rightPriceScale: { borderVisible: false },
+  leftPriceScale:  { visible: false },
+  timeScale: {
+    borderVisible: false,
+    timeVisible: true,
+    secondsVisible: false,
+    tickMarkFormatter,
+  },
+  localization: { locale: LOCALE },
+  grid: { vertLines: { color: COLORS.grid }, horzLines: { color: 'rgba(10,20,40,.08)' } },
+  crosshair: { mode: 0 },
+});
 
 const series = chart.addCandlestickSeries({
   upColor: COLORS.up, downColor: COLORS.down,
