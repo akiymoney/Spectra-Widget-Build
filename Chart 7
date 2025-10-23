@@ -9,14 +9,14 @@
       <!-- Overlay tools (top-left) -->
       <div class="cp-tools" aria-label="Chart Tools">
         <label class="cp-sr-only" for="cp-search">Search</label>
-        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTC-USD, AAPL, EUR-USD" />
+        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTCUSD, AAPL, EURUSD" />
         <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">1m</button>
         <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
       </div>
 
       <!-- Top-center info (377x34) -->
       <div class="cp-info" aria-live="polite">
-        <span class="sym">BTC-USD</span><span class="sep">•</span><span class="name">—</span><span class="sep">•</span><span class="last">Last: —</span>
+       <span class="sym">BTCUSD</span><span class="sep">•</span><span class="name">—</span><span class="sep">•</span><span class="last">Last: —</span>
       </div>
 
       <!-- Lightweight Charts host (987x377) -->
@@ -206,24 +206,33 @@
 
 <script>
 (()=>{
-  // ───────────────────────── Config / Theme ─────────────────────────
-  const ROOT = document.getElementById('cycla-chart-widget');
-  const TD_KEY = ROOT.getAttribute('data-td-key') || '';
+// ───────────────────────── Config / Theme ─────────────────────────
+const ROOT  = document.getElementById('cycla-chart-widget');
+const TD_KEY = ROOT.getAttribute('data-td-key') || '';
 
-// ── CYCLA bus (shared with Screener) ───────────────────────────────────────────
+// Shared namespace + bus (single source of truth)
 window.CYCLA = window.CYCLA || {};
+window.CYCLA.TD_KEY = TD_KEY;                     // expose key for Screener fallback
 window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
+
+// Surface missing-key to Screener's ECU
+if (!TD_KEY) {
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
+    detail: { level: 'err', msg: 'Missing TwelveData key (chart).' }
+  }));
+}
 
 // Let Screener load symbols into the chart without touching TF
 window.CYCLA.bus.addEventListener('cycla:load', (e) => {
+  const { symbol } = e.detail || {};
+  if (!symbol) return;
+  const tf = window.CYCLA.currentTF || '1m';
   try {
-    const { symbol } = e.detail || {};
-    if (symbol) {
-      load(symbol, current.tf);
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
-        detail: { level: 'ok', msg: `Chart loading ${symbol}…` }
-      }));
-    }
+    load(symbol, tf);
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
+      detail: { level: 'ok', msg: `Chart loading ${symbol}…` }
+    }));
   } catch (err) {
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
       detail: { level: 'err', msg: `Chart load failed: ${err?.message || err}` }
@@ -231,7 +240,7 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
   }
 });
 
-  const DEFAULT_SYMBOL = 'BTC-USD';
+const DEFAULT_SYMBOL = 'BTCUSD';
 
   // ► TZ PATCH: force all displayed times to Houston, TX (America/Chicago)
   const TIMEZONE = 'America/Chicago';
@@ -285,9 +294,45 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
   };
 
   // ───────────────────────── Utilities ─────────────────────────
-  const normalizeSymbol = (s) => s.replace(/-/g,'/').toUpperCase(); // BTC-USD → BTC/USD
+// Accept BTC-USD / BTC/USD / BTCUSD / BTCUSDT, etc.
+// Convert to API symbol (BTC/USD) and UI symbol (BTCUSD)
+const KNOWN_QUOTES = ['USDT','USDC','USD','EUR','GBP','JPY','AUD','CAD','CHF','CNY','HKD','BTC','ETH','SOL','BNB'];
+
+const QUOTES_DESC = KNOWN_QUOTES.slice().sort((a,b)=>b.length-a.length);
+
+function normalizeSymbol(raw) {
+  let s = (raw || '').trim().toUpperCase();
+  if (!s) return s;
+  s = s.replace(/\s+/g, ''); // allow "btc usd" style input
+
+  // If user typed separators, normalize to single slash
+  if (s.includes('/') || s.includes('-')) {
+    return s.replace(/-/g, '/').replace(/\/+/g, '/');
+  }
+
+  // If slashless, split BASE+QUOTE using known quotes (longest first, pre-sorted)
+  for (const q of QUOTES_DESC) {
+    if (s.endsWith(q) && s.length > q.length) {
+      const base = s.slice(0, s.length - q.length);
+      if (base.length >= 2 && base.length <= 6) {
+        return `${base}/${q}`;
+      }
+    }
+  }
+  // Equities like AAPL just pass through
+  return s;
+}
+
+// UI wants slashless (BTCUSD)
+function toUiSymbol(sym) {
+  return String(sym || '')
+    .toUpperCase()
+    .replace(/[\/\-\s]/g, ''); // remove /, -, spaces
+}
+
   const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000); // keep UTC from API
-  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 
   // TZ helpers (used by axis + crosshair)
   function timeToDate(t){
@@ -688,17 +733,20 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
   // ───────────────────────── Load symbol + TF ─────────────────────────
   let current = { symbol: normalizeSymbol(DEFAULT_SYMBOL), tf:'1m', poll:null, lastTime:0, smftState:null };
 
-  function applyTfLocalization(tf){
-    currentTF = tf;
-    chart.applyOptions({
-      timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
-      localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
-    });
-    chartOsc.applyOptions({
-      timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
-      localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
-    });
-  }
+// ── applyTfLocalization (patched to keep shared TF in sync) ───────────────────
+function applyTfLocalization(tf){
+  window.CYCLA.currentTF = tf;   // <— new: share current TF with Screener early
+  currentTF = tf;
+
+  chart.applyOptions({
+    timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
+    localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
+  });
+  chartOsc.applyOptions({
+    timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
+    localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
+  });
+}
 
   function computeMarkers(priceBars, osc, up, dn){
     const markers = [];
@@ -733,7 +781,7 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
       if(current.poll){ clearInterval(current.poll); current.poll = null; }
 
       TF_BTN.textContent = tf;
-      INFO.sym.textContent = symbol.replace('/', '-');
+INFO.sym.textContent = toUiSymbol(symbol);
       INFO.name.textContent = '—';
       INFO.last.textContent = 'Last: —';
 
@@ -831,7 +879,7 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
       current.tf = tf;
 
       // Search focus UX
-      SEARCH.value = symbol.replace('/', '-');
+SEARCH.value = toUiSymbol(symbol);
 
     }catch(err){
       console.error(err);
@@ -864,10 +912,6 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
       load(current.symbol, tf);
     });
   });
-
-  // Crosshair tooltip on price pane (bottom replacement for black time label)
-  PRICE_HOST.addEventListener('mouseleave', ()=> TIP.classList.remove('cp-tip--show'));
-  OSC_HOST.addEventListener('mouseleave',   ()=> TIP.classList.remove('cp-tip--show'));
 
   // Bootstrap
   load(DEFAULT_SYMBOL, '1m');
