@@ -241,19 +241,19 @@ window.CYCLA.bus.addEventListener("cycla:signal", async (e) => {
 
   const product_id = toProductId(symbol);
   const usd  = Number(window?.CYCLA?.ORDER_USD ?? 5);
-  const size = price ? +(usd / price).toFixed(6) : undefined; // simple size calc
+  if (!Number.isFinite(price) || price <= 0) { console.warn('No signal price'); return; }
+const size = +(usd / price).toFixed(8);
 
   await fetch(`${RELAY}/order`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      exchange: "coinbase",
       product_id,
       side,                 // "BUY" or "SELL"
       type: "limit",        // <-- now explicit
       price,                // <-- signal price from the chart
       size,                 // <-- base units (e.g., BTC), derived from your USD
-      tif: "GTC",           // good-’til-cancelled (common default)
+     seconds: 60,    // 1-minute GTD (relay converts to limit_limit_gtd)
       client_order_id: `${symbol}-${tf}-${time}-${side}`
     })
   });
