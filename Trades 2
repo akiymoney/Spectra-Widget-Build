@@ -104,6 +104,9 @@
   window.CYCLA = window.CYCLA || {};
   window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 
+  // ✅ If the chart exposes RELAY, grab it here (optional, for killswitch)
+  const RELAY = window?.CYCLA?.RELAY;
+
   // Elements
   const WATCH  = ROOT.querySelector('#tp-watch');
   const ACTIVE = ROOT.querySelector('#tp-active');
@@ -114,6 +117,7 @@
   // Local state (symbols as UI-formatted strings like BTCUSD, AAPL, EURUSD)
   const watchSet  = new Set();
   const activeSet = new Set();
+
 
   // ───────────────────────── Helpers ─────────────────────────
   function uiNormalize(sym){
@@ -151,6 +155,37 @@
       container.appendChild(makeRow(sym, where));
     }
   }
+
+  // ✅ Clear lists when the chart tells us to (e.g., kill switch from chart)
+  window.CYCLA.bus.addEventListener('cycla:trades:clear', ()=>{
+    activeSet.clear();
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // ✅ AUTO should *also* start auto-trading, not just move symbols
+  BTN_AUTO.addEventListener('click', ()=>{
+    // start engine
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
+   window.CYCLA.ORDER_USD = 5;
+
+    // keep your current behavior (move watch → active)
+    if (watchSet.size === 0) return;
+    for (const s of watchSet) activeSet.add(s);
+    watchSet.clear();
+    renderList(WATCH, watchSet, 'Watch');
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // ✅ KS should stop engine, clear UI, and (if we know RELAY) poke the backend
+  BTN_KS.addEventListener('click', async ()=>{
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
+
+    if (RELAY) { try { await fetch(`${RELAY}/killswitch`, { method:'POST' }); } catch(_){} }
+
+    activeSet.clear();
+    renderList(ACTIVE, activeSet, 'Active');
+  });
 
   // ───────────────────────── P/L HUD patch (ONLY CHANGE) ─────────────────────────
   const fmtUSD = (n)=> {
@@ -226,19 +261,6 @@
     if(activeSet.has(sym)) return;                  // if already active, ignore
     if(!watchSet.has(sym)) watchSet.add(sym);
     renderList(WATCH, watchSet, 'Watch');
-  });
-
-  BTN_AUTO.addEventListener('click', ()=>{
-    if(watchSet.size === 0) return;
-    for(const s of watchSet){ activeSet.add(s); }
-    watchSet.clear();
-    renderList(WATCH, watchSet, 'Watch');
-    renderList(ACTIVE, activeSet, 'Active');
-  });
-
-  BTN_KS.addEventListener('click', ()=>{
-    activeSet.clear();
-    renderList(ACTIVE, activeSet, 'Active');
   });
 
   window.CYCLA.bus.addEventListener('cycla:trades:add', (e)=>{
