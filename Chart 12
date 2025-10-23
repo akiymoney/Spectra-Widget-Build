@@ -216,9 +216,20 @@ window.CYCLA.TD_KEY = TD_KEY;                     // expose key for Screener fal
 window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
 
-const RELAY = "https://<your-relay-host>";   // Render service URL
+const RELAY = "https://https://spectra-trade-bot.onrender.com";   // Render service URL
 
 let AUTO = false;
+
+function toProductId(sym){
+  // Accept BTCUSD, BTC/USD, BTC-USD → BTC-USD
+  const s = String(sym||'').toUpperCase().replace(/\s+/g,'');
+  if (s.includes('-')) return s;
+  if (s.includes('/')) return s.replace('/', '-');
+  // default: assume USD quote if none shown
+  if (/^[A-Z0-9]+USD$/.test(s)) return s.replace(/USD$/, '-USD');
+  // last resort: insert a dash before the last 3 chars
+  return s.slice(0, -3) + '-' + s.slice(-3);
+}
 
 window.CYCLA.bus.addEventListener("cycla:auto:start", () => AUTO = true);
 window.CYCLA.bus.addEventListener("cycla:auto:stop",  () => AUTO = false);
@@ -227,12 +238,15 @@ window.CYCLA.bus.addEventListener("cycla:signal", async (e) => {
   if (!AUTO) return;
   const { symbol, side, tf, time } = e.detail;
   const clientOrderId = `${symbol}-${tf}-${time}-${side}`;
+
   // choose a sizing rule you like; example $50 notional
-  await fetch(`${RELAY}/trade`, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ symbol, side, size: "50 USD", clientOrderId })
-  });
+const product_id = toProductId(symbol);
+const usd =  Number(window?.CYCLA?.ORDER_USD ?? 50); // or hardcode 50
+await fetch(`${RELAY}/order`, {
+  method:"POST",
+  headers:{ "Content-Type":"application/json" },
+  body: JSON.stringify({ exchange:"coinbase", product_id, side, usd, client_order_id: clientOrderId })
+   });
 });
 
 // Hook your buttons:
