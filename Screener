@@ -1,0 +1,500 @@
+<!-- CYCLA • Screener Panel (233x523) • TwelveData + SMFT scan -->
+<div id="cycla-screener-center" style="--block-h:523px;">
+  <div id="cycla-screener-widget" role="region" aria-label="Cycla Screener"
+       data-default-asset="All" data-mode="any" data-rpm="48">
+    <!-- Title (invisible label; keeps layout consistent) -->
+    <div class="cs-label" aria-hidden="true">CYCLA Screener</div>
+
+    <!-- Upper button row -->
+    <div class="cs-tools" aria-label="Screener Controls">
+      <button id="cs-asset-btn" class="cs-tool cs-asset" type="button" aria-haspopup="menu" aria-expanded="false" title="Asset universe">All</button>
+      <button id="cs-tf-btn"    class="cs-tool cs-tf"    type="button" aria-haspopup="menu" aria-expanded="false" title="Timeframes / Mode">TF</button>
+      <button id="cs-play"      class="cs-tool cs-icon"  type="button" aria-label="Play/Pause" title="Start / Pause scan">▶</button>
+      <button id="cs-stop"      class="cs-tool cs-icon"  type="button" aria-label="Stop" title="Stop scan">■</button>
+
+      <!-- Asset dropdown -->
+      <div id="cs-asset-menu" class="cs-dd cs-dd--hidden" role="menu" aria-label="Asset universes">
+        <button data-asset="Crypto" role="menuitem">Crypto</button>
+        <button data-asset="Stocks" role="menuitem">Stocks</button>
+        <button data-asset="FX"     role="menuitem">FX</button>
+        <button data-asset="ETF"    role="menuitem">ETF</button>
+        <button data-asset="All"    role="menuitem">All</button>
+      </div>
+
+      <!-- TF/Mode dropdown -->
+      <div id="cs-tf-menu" class="cs-dd cs-dd--hidden" role="menu" aria-label="TF + Mode">
+        <div class="cs-dd-section" aria-label="Timeframes">
+          <button data-tf="10m" role="menuitem">10m</button>
+          <button data-tf="1H"  role="menuitem">1H</button>
+          <button data-tf="1D"  role="menuitem">1D</button>
+          <button data-tf="1W"  role="menuitem">1W</button>
+          <button data-tf="1M"  role="menuitem">1M</button>
+        </div>
+        <div class="cs-dd-section" aria-label="Mode">
+          <button data-mode="any" role="menuitem">any (≥1 TF > 0)</button>
+          <button data-mode="3plus" role="menuitem">3+ (≥3 TF > 0)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll banner HUD (status) -->
+    <div id="cs-banner" class="cs-banner" aria-live="polite">Idle.</div>
+
+    <!-- Results HUD -->
+    <div id="cs-results" class="cs-results" role="listbox" aria-label="Screener results"></div>
+
+    <!-- Bottom ECU HUD -->
+    <div class="cs-ecu">
+      <div class="ecu-led" title="Status LED" aria-hidden="true"></div>
+      <div class="ecu-msg" id="ecu-msg" aria-live="polite">ECU ready.</div>
+      <div class="ecu-tools">
+        <button id="ecu-copy"  class="ecu-icon" title="Copy log">⧉</button>
+        <button id="ecu-clear" class="ecu-icon" title="Clear log">✕</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────── Layout / centering ───────────── */
+  #cycla-screener-center *{ box-sizing:border-box; }
+  #cycla-screener-center{
+    width:100%; height:var(--block-h,523px);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+
+  /* Root 233×523, glassy shell to match chart aesthetic */
+  #cycla-screener-widget{
+    position:relative;
+    width:233px; height:523px; margin:0 auto;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
+    font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220; overflow:hidden;
+  }
+
+  .cs-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
+
+  /* Upper tools row */
+  .cs-tools{
+    position:absolute; top:6px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; align-items:center; justify-content:flex-start; z-index:3;
+  }
+  .cs-tool{
+    height:34px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95); box-shadow:0 13px 21px rgba(8,16,40,.18);
+    color:#1b2a4a; font-weight:700; cursor:pointer;
+  }
+  .cs-asset{ width:55px; }
+  .cs-tf{    width:55px; }
+  .cs-icon{  width:34px; min-width:34px; display:flex; align-items:center; justify-content:center; }
+
+  /* Dropdown shells */
+  .cs-dd{
+    position:absolute; top:38px; left:6px; z-index:4;
+    display:grid; gap:6px; padding:8px; border-radius:10px;
+    background:rgba(255,255,255,.96); border:1px solid rgba(10,20,40,.14);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+  }
+  .cs-dd--hidden{ display:none; }
+  .cs-dd > button{
+    height:28px; min-width:55px; border-radius:8px; border:1px solid rgba(10,20,40,.14);
+    background:#fff; font-weight:700;
+  }
+  .cs-dd > button:hover{ background:#eef4ff; }
+  #cs-tf-menu{ grid-template-columns: 1fr; width:145px; }
+  #cs-asset-menu{ grid-template-columns: repeat(3, auto); }
+  .cs-dd-section{ display:grid; gap:6px; margin-bottom:6px; }
+
+  /* Banner HUD (233×34) */
+  .cs-banner{
+    position:absolute; top:46px; left:6px; right:6px; height:34px;
+    display:flex; align-items:center; justify-content:center; padding:0 6px;
+    font-weight:800; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.78); border:1px solid rgba(10,20,40,.14); border-radius:10px;
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+  }
+
+  /* Results HUD (233×377) */
+  .cs-results{
+    position:absolute; top:86px; left:6px; right:6px; height:377px;
+    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
+    border:1px solid rgba(10,20,40,.12); border-radius:12px;
+    padding:6px; overflow:auto; scroll-behavior:smooth;
+  }
+  .cs-row{
+    display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;
+    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
+    border:1px solid rgba(10,20,40,.12); cursor:pointer;
+  }
+  .cs-row:hover{ background:#eef7ff; }
+  .cs-sym{ font-weight:800; color:#1b2a4a; }
+  .cs-tfbadges{ display:flex; gap:4px; }
+  .cs-badge{
+    border:1px solid rgba(10,20,40,.12); border-radius:999px; padding:2px 6px; font-weight:800; font-size:10px;
+  }
+  .cs-badge.ok{ background:#e6fff8; }
+  .cs-badge.no{ background:#fde7ff; }
+
+  /* Bottom ECU (233×34) */
+  .cs-ecu{
+    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
+    display:flex; align-items:center; gap:6px; padding:0 6px;
+    background:#fff; border:1px solid rgba(10,20,40,.14); border-radius:10px;
+  }
+  .ecu-led{
+    width:8px; height:8px; border-radius:50%;
+    background:#a3a3a3; border:1px solid rgba(0,0,0,.2);
+  }
+  .ecu-led.ok{ background:#16a34a; }
+  .ecu-led.warn{ background:#f59e0b; }
+  .ecu-led.err{ background:#dc2626; }
+  .ecu-msg{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700; color:#33415e; }
+  .ecu-tools{ display:flex; gap:4px; }
+  .ecu-icon{
+    width:18px; height:18px; border-radius:6px; border:1px solid rgba(10,20,40,.14);
+    background:#f8fafc; font-weight:800; line-height:16px; text-align:center; cursor:pointer;
+  }
+</style>
+
+<script>
+(()=>{
+  // ───────────────────────── Shared wiring / discovery ─────────────────────────
+  const CS_ROOT   = document.getElementById('cycla-screener-widget');
+  const CHART_ROOT= document.getElementById('cycla-chart-widget'); // discover chart for key + bus
+  const TD_KEY    = (CHART_ROOT && CHART_ROOT.getAttribute('data-td-key')) || ''; // same key as chart
+  const DEFAULT_ASSET = CS_ROOT.getAttribute('data-default-asset') || 'All';
+  const DEFAULT_MODE  = CS_ROOT.getAttribute('data-mode') || 'any';
+  const RPM_CAP  = Math.max(1, parseInt(CS_ROOT.getAttribute('data-rpm')||'48',10)); // 80% Grow by default
+
+  // Global bus (shared with chart patch below)
+  window.CYCLA = window.CYCLA || {};
+  window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+
+  // ECU helpers
+  const ECU_LED = CS_ROOT.querySelector('.ecu-led');
+  const ECU_MSG = document.getElementById('ecu-msg');
+  function ecu(status='ok', msg=''){
+    ECU_LED.classList.remove('ok','warn','err');
+    ECU_LED.classList.add(status);
+    if(msg){ ECU_MSG.textContent = msg; }
+  }
+  function ecuAppend(msg){
+    ECU_MSG.textContent = msg;
+  }
+
+  // Banner helper
+  const BANNER = document.getElementById('cs-banner');
+  const setBanner = (txt)=> BANNER.textContent = txt;
+
+  // Controls
+  const BTN_ASSET = document.getElementById('cs-asset-btn');
+  const BTN_TF    = document.getElementById('cs-tf-btn');
+  const BTN_PLAY  = document.getElementById('cs-play');
+  const BTN_STOP  = document.getElementById('cs-stop');
+  const DD_ASSET  = document.getElementById('cs-asset-menu');
+  const DD_TF     = document.getElementById('cs-tf-menu');
+
+  // Results
+  const RESULTS = document.getElementById('cs-results');
+
+  // ECU tools
+  document.getElementById('ecu-copy').addEventListener('click', ()=>{
+    navigator.clipboard.writeText(ECU_MSG.textContent||'');
+  });
+  document.getElementById('ecu-clear').addEventListener('click', ()=>{ ECU_MSG.textContent = 'ECU cleared.'; });
+
+  // Dropdown toggles
+  function toggle(dd){ dd.classList.toggle('cs-dd--hidden'); }
+  function hide(dd){ dd.classList.add('cs-dd--hidden'); }
+  BTN_ASSET.addEventListener('click', ()=> toggle(DD_ASSET));
+  BTN_TF.addEventListener('click',    ()=> toggle(DD_TF));
+  document.addEventListener('click', (e)=>{
+    if(!DD_ASSET.contains(e.target) && e.target!==BTN_ASSET) hide(DD_ASSET);
+    if(!DD_TF.contains(e.target) && e.target!==BTN_TF) hide(DD_TF);
+  });
+
+  // State
+  let universeKind = DEFAULT_ASSET; // 'Crypto' | 'Stocks' | 'FX' | 'ETF' | 'All'
+  let mode = DEFAULT_MODE;          // 'any' | '3plus'
+  let selectedTFs = new Set(['10m','1H','1D','1W','1M']);
+  let running = false, paused = false, stopToken = { v:false };
+
+  // Menu binds
+  DD_ASSET.querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=>{
+    universeKind = b.getAttribute('data-asset');
+    BTN_ASSET.textContent = universeKind;
+    hide(DD_ASSET);
+  }));
+  DD_TF.querySelectorAll('button[data-tf]').forEach(b=> b.addEventListener('click', ()=>{
+    const tf = b.getAttribute('data-tf');
+    if(selectedTFs.has(tf)) selectedTFs.delete(tf); else selectedTFs.add(tf);
+    BTN_TF.textContent = 'TF';
+  }));
+  DD_TF.querySelectorAll('button[data-mode]').forEach(b=> b.addEventListener('click', ()=>{
+    mode = b.getAttribute('data-mode'); hide(DD_TF);
+    BTN_TF.textContent = (mode==='3plus'?'3+':'TF');
+  }));
+
+  // ───────────────────────── Rate limiter (80% Grow default) ─────────────────────────
+  // Token bucket; refills every second.
+  const bucket = { tokens: RPM_CAP, cap: RPM_CAP, perSec: RPM_CAP/60 };
+  setInterval(()=>{ bucket.tokens = Math.min(bucket.cap, bucket.tokens + bucket.perSec); }, 1000);
+  async function rateGate(){
+    while(bucket.tokens < 1){ await new Promise(r=>setTimeout(r, 250)); if(stopToken.v||paused) throw new Error('paused_or_stopped'); }
+    bucket.tokens -= 1;
+  }
+
+  // ───────────────────────── SMFT Δ-oscillator core (aligns with chart) ─────────────────────────
+  const SMFT_PARAMS = { xi: 3.0, eSatPct: 8.0, gamma: 8.0, atrLen: 5 };
+  const OSC_PARAMS  = { bandK: 0.34, bandLen: 34 };
+
+  function rmaNext(prev, x, len){ return prev==null ? x : (prev*(len-1)+x)/len; }
+  function trueRange(h,l,pc){ if(pc==null) return h-l; const a=h-l, b=Math.abs(h-pc), c=Math.abs(l-pc); return Math.max(a,b,c); }
+  function smftAlpha(atrPct, p){ const xiMem = Math.max(1, p.xi / (1 + Math.pow(atrPct / p.eSatPct, p.gamma))); return 2/(xiMem+1); }
+
+  function buildSMFTCloseOsc(bars){
+    let prevClose = null, atrRma=null, cP2=null, prevSmft=null, oscAbsRma=null;
+    const out=[]; // {time, value}
+    for(const b of bars){
+      const tr = trueRange(b.high,b.low,prevClose);
+      atrRma = rmaNext(atrRma, tr, SMFT_PARAMS.atrLen);
+      const atrPct = (atrRma / (b.close||1))*100;
+      const alpha  = smftAlpha(atrPct, SMFT_PARAMS);
+      cP2 = (cP2==null? b.close : cP2 + alpha*(b.close - cP2));
+      const d = (prevSmft==null? 0 : cP2 - prevSmft);
+      prevSmft = cP2;
+      const norm = (atrRma || Math.abs(d) || 1);
+      const osc = d / norm;
+      oscAbsRma = rmaNext(oscAbsRma, Math.abs(osc), OSC_PARAMS.bandLen);
+      out.push({ time:b.time, value:osc, band: (oscAbsRma||0)*OSC_PARAMS.bandK });
+      prevClose = b.close;
+    }
+    return out;
+  }
+
+  // ───────────────────────── TwelveData helpers (front-end only) ─────────────────────────
+  if(!TD_KEY){ ecu('err','Missing TwelveData key on chart widget.'); }
+
+  function normalizeSymbol(s){ return s.replace(/-/g,'/').toUpperCase(); }
+  function toEpoch(iso){ return Math.floor(new Date(iso.replace(' ','T')+'Z').getTime()/1000); }
+
+  async function fetchSeries(symbol, interval, size=600){
+    await rateGate();
+    const url = new URL('https://api.twelvedata.com/time_series');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('interval', interval);
+    url.searchParams.set('outputsize', String(size));
+    url.searchParams.set('timezone', 'UTC');
+    url.searchParams.set('order','ASC');
+    url.searchParams.set('apikey', TD_KEY);
+    const r = await fetch(url); const j = await r.json();
+    if(j.status==='error' || !j.values) throw new Error(j.message||'TD error');
+    return j.values.map(v=>({ time:toEpoch(v.datetime), open:+v.open, high:+v.high, low:+v.low, close:+v.close }));
+  }
+
+  // TF mapping for scanning set (native where possible)
+  const TF_MAP = {
+    '10m': { td:'10min', native:true }, // TwelveData supports 10min
+    '1H' : { td:'1h', native:true },
+    '1D' : { td:'1day', native:true },
+    '1W' : { td:'1week', native:true },
+    '1M' : { td:'1month', native:true }
+  };
+
+  async function oscAboveZero(symbol, tf){
+    const spec = TF_MAP[tf];
+    if(!spec) return false;
+    try{
+      const bars = await fetchSeries(normalizeSymbol(symbol), spec.td, 260);
+      const osc  = buildSMFTCloseOsc(bars);
+      const last = osc[osc.length-1];
+      return last && last.value > 0;
+    }catch(e){
+      ecu('warn', `${symbol} ${tf}: ${e.message||e}`);
+      return false;
+    }
+  }
+
+  // ───────────────────────── Universe loading (front-end) ─────────────────────────
+  // Priority:
+  // 1) window.CYCLA.assets (if provided)
+  // 2) <script id="cycla-universes" type="application/json"> (if present)
+  // 3) Live fetch from TwelveData category endpoints (Crypto/Stocks/FX/ETF), then join for 'All'
+  async function getInjectedUniverses(){
+    try{
+      if(window.CYCLA && window.CYCLA.assets) return window.CYCLA.assets;
+    }catch(_){}
+    const el = document.getElementById('cycla-universes');
+    if(el && el.textContent.trim()){
+      try{ return JSON.parse(el.textContent); }catch(_){}
+    }
+    return null;
+  }
+
+  async function fetchTDUniverse(kind){
+    await rateGate();
+    const out = [];
+    const base = 'https://api.twelvedata.com';
+    const endpointByKind = {
+      'Crypto': '/cryptocurrencies',
+      'Stocks': '/stocks',
+      'FX':     '/forex_pairs',
+      'ETF':    '/etfs'
+    };
+    const ep = endpointByKind[kind];
+    if(!ep) return out;
+    let url = new URL(base + ep);
+    url.searchParams.set('apikey', TD_KEY);
+    url.searchParams.set('format','JSON');
+    // naive page loop (most lists are single page; TD may paginate with "next_page")
+    let page = 0;
+    while(true){
+      const r = await fetch(url.toString());
+      const j = await r.json();
+      if(Array.isArray(j?.data)){
+        for(const row of j.data){
+          // normalize symbols where needed
+          const s = (row.symbol || row.currency_pair || row.symbols || row.instrument || '').toUpperCase();
+          if(s){ out.push(s.replace(/\//g,'-')); }
+        }
+      }else if(Array.isArray(j)){
+        for(const row of j){
+          const s = (row.symbol || row.currency_pair || '').toUpperCase();
+          if(s){ out.push(s.replace(/\//g,'-')); }
+        }
+      }
+      const next = j?.next_page;
+      if(!next || ++page>20) break;
+      url = new URL(base + ep);
+      url.searchParams.set('apikey', TD_KEY);
+      url.searchParams.set('page', next);
+    }
+    return [...new Set(out)];
+  }
+
+  async function loadUniverse(kind){
+    const inj = await getInjectedUniverses();
+    if(inj && (kind in inj || kind==='All')){
+      if(kind==='All'){
+        const all = [].concat(inj.Crypto||[], inj.Stocks||[], inj.FX||[], inj.ETF||[]);
+        return [...new Set(all)];
+      }
+      return inj[kind]||[];
+    }
+    // Fallback: live queries
+    if(kind==='All'){
+      const [c,s,f,e] = await Promise.allSettled(['Crypto','Stocks','FX','ETF'].map(fetchTDUniverse));
+      const arr = []
+        .concat(c.value||[]).concat(s.value||[]).concat(f.value||[]).concat(e.value||[]);
+      return [...new Set(arr)];
+    }
+    return fetchTDUniverse(kind);
+  }
+
+  // ───────────────────────── Core scanning loop ─────────────────────────
+  function tfSetToList(){ return Array.from(selectedTFs); }
+
+  async function scanUniverse(kind, mode, stopToken){
+    const startTs = Date.now();
+    const syms = await loadUniverse(kind);
+    if(!syms.length) throw new Error('Universe is empty; check key or injection.');
+    setBanner(`Loaded ${syms.length} ${kind} symbols. Starting...`);
+    ecu('ok', `Universe(${kind}) size=${syms.length}`);
+
+    RESULTS.innerHTML = '';
+    const tfList = tfSetToList();
+    const need = (mode==='3plus') ? 3 : 1;
+    let hits = 0, scanned = 0;
+
+    for(const sym of syms){
+      if(stopToken.v) break;
+      while(paused){ await new Promise(r=>setTimeout(r,200)); if(stopToken.v) break; }
+      scanned++;
+
+      try{
+        let ok = 0, badges = [];
+        for(const tf of tfList){
+          const isUp = await oscAboveZero(sym, tf);
+          if(isUp) ok++;
+          badges.push({tf, ok:isUp});
+          if(ok>=need && mode==='any') break;
+        }
+        if(ok>=need){
+          hits++;
+          appendResult(sym, badges);
+        }
+
+        if(scanned%25===0){
+          const dt = ((Date.now()-startTs)/1000)|0;
+          setBanner(`scan: ${kind} • tf=${tfList.join(',')} • ${scanned}/${syms.length} • hits=${hits} • t=${dt}s`);
+        }
+      }catch(e){
+        ecu('warn', `${sym}: ${e.message||e}`);
+      }
+    }
+    const totalS = ((Date.now()-startTs)/1000)|0;
+    setBanner(`done: scanned=${scanned}, hits=${hits}, t=${totalS}s`);
+    ecu(stopToken.v ? 'warn' : 'ok', stopToken.v ? 'Scan stopped.' : 'Scan done.');
+  }
+
+  function appendResult(symbol, badges){
+    const row = document.createElement('div'); row.className='cs-row'; row.setAttribute('role','option');
+    const sym = document.createElement('div'); sym.className='cs-sym'; sym.textContent = symbol;
+    const right = document.createElement('div'); right.className='cs-tfbadges';
+    for(const b of badges){
+      const tag = document.createElement('div'); tag.className='cs-badge '+(b.ok?'ok':'no');
+      tag.textContent = b.tf;
+      right.appendChild(tag);
+    }
+    row.appendChild(sym); row.appendChild(right);
+    row.addEventListener('click', ()=>{
+      // Two-way comm: request chart to load symbol (preserve its current TF)
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol } }));
+      setBanner(`sent to chart: ${symbol}`);
+    });
+    RESULTS.appendChild(row);
+  }
+
+  // Play / Pause / Stop
+  BTN_PLAY.addEventListener('click', async ()=>{
+    if(!TD_KEY){ ecu('err','Missing TwelveData key.'); return; }
+    if(!running){
+      running = true; paused = false; stopToken = { v:false };
+      BTN_PLAY.textContent = '⏸'; // pause icon
+      setBanner('starting...');
+      try{
+        await scanUniverse(universeKind, mode, stopToken);
+      }catch(e){
+        if(e.message!=='paused_or_stopped') ecu('err', e.message||e);
+      }finally{
+        running = false; BTN_PLAY.textContent = '▶';
+      }
+    }else{
+      paused = !paused;
+      BTN_PLAY.textContent = paused ? '▶' : '⏸';
+      setBanner(paused ? 'paused' : 'resumed');
+    }
+  });
+
+  BTN_STOP.addEventListener('click', ()=>{
+    stopToken.v = true; paused = false; running = false;
+    BTN_PLAY.textContent = '▶';
+    setBanner('stopped.');
+  });
+
+  // Chart -> ECU error/status (optional)
+  window.CYCLA.bus.addEventListener('cycla:ecu', (e)=>{
+    const { level='ok', msg='' } = e.detail||{};
+    ecu(level, msg);
+  });
+
+  // Boot defaults
+  BTN_ASSET.textContent = universeKind;
+  BTN_TF.textContent = (mode==='3plus'?'3+':'TF');
+  setBanner('Idle.');
+  ecu('ok','ECU ready.');
+})();
+</script>
