@@ -824,24 +824,32 @@ function priceAtTime(t){
 function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers){
   try{
     const prevSet = new Set((prevMarkers||[]).map(m => `${m.time}|${m.text}`));
-    for(const m of (nextMarkers||[])){
+
+    for (const m of (nextMarkers||[])) {
       const key = `${m.time}|${m.text}`;
       if (prevSet.has(key)) continue;
 
-   const px = priceAtTime(m.time);
-   if (!Number.isFinite(px)) { console.warn('No signal price', m.time); continue; }   
+      // prefer marker.price, fall back to tolerant lookup
+      const px = Number(m?.price ?? NaN);
+      const resolved = Number.isFinite(px) ? px : priceAtTime(m.time);
+      if (!Number.isFinite(resolved) || resolved <= 0) {
+        console.warn('No signal price', m.time);
+        continue;
+      }
 
-   window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:signal', {
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:signal', {
         detail: {
           symbol: String(symbolUI||'').toUpperCase(),
           tf,
           side: m.text,          // "BUY" or "SELL"
           time: m.time,
-         price: px
+          price: resolved        // ← send the resolved price (NOT px)
         }
       }));
     }
-  }catch(_){}
+  } catch (e) {
+    console.warn('emitTradeSignals failed:', e);
+  }
 }
 
   function updateCrosshairFrom(src, param){
@@ -916,31 +924,43 @@ function applyTfLocalization(tf){
   });
 }
 
-  function computeMarkers(priceBars, osc, up, dn){
-    const markers = [];
-    // Build quick time->close map for marker placement near candle
-    const closeByTime = new Map(priceBars.map(b => [b.time, b.close]));
-    for(let i=1;i<osc.length;i++){
-      const t0 = osc[i-1].time, t1 = osc[i].time;
-      const v0 = osc[i-1].value, v1 = osc[i].value;
-      const u0 = up[i-1].value,  u1 = up[i].value;
-      const d0 = dn[i-1].value,  d1 = dn[i].value;
+function computeMarkers(priceBars, osc, up, dn){
+  const markers = [];
+  // Build quick time->close map for marker placement near candle
+  const closeByTime = new Map(priceBars.map(b => [b.time, b.close]));
 
-      if(v0 <= u0 && v1 > u1){ // cross above upper band → BUY (below bar)
-        markers.push({
-          time: t1, position: 'belowBar', shape: 'arrowUp',
-          color: COLORS.up, text: 'BUY'
-        });
-      }
-      if(v0 >= d0 && v1 < d1){ // cross under lower band → SELL (above bar)
-        markers.push({
-          time: t1, position: 'aboveBar', shape: 'arrowDown',
-          color: COLORS.down, text: 'SELL'
-        });
-      }
+  for (let i = 1; i < osc.length; i++) {
+    const t0 = osc[i - 1].time, t1 = osc[i].time;
+    const v0 = osc[i - 1].value, v1 = osc[i].value;
+    const u0 = up[i - 1].value,  u1 = up[i].value;
+    const d0 = dn[i - 1].value,  d1 = dn[i].value;
+
+    // cross above upper band → BUY (below bar)
+    if (v0 <= u0 && v1 > u1) {
+      markers.push({
+        time: t1,
+        position: 'belowBar',
+        shape: 'arrowUp',
+        color: COLORS.up,
+        text: 'BUY',
+        price: closeByTime.get(t1)  // ← include signal price
+      });
     }
-    return markers;
+
+    // cross under lower band → SELL (above bar)
+    if (v0 >= d0 && v1 < d1) {
+      markers.push({
+        time: t1,
+        position: 'aboveBar',
+        shape: 'arrowDown',
+        color: COLORS.down,
+        text: 'SELL',
+        price: closeByTime.get(t1)  // ← include signal price
+      });
+    }
   }
+  return markers;
+}
 
   async function load(symbolInput, tfInput){
     try{
@@ -971,13 +991,21 @@ INFO.sym.textContent = toUiSymbol(symbol);
       zeroLine.setData(osc.map(d => ({ time:d.time, value:0 })));
 // BUY/SELL labels on main chart based on osc-band crossings
 const markers = computeMarkers(smftBars, osc, bandUp, bandDn);
-series.setMarkers(markers);
 
-emitTradeSignals(INFO.sym.textContent.trim().toUpperCase(), tf, [], markers);
+// set buffers FIRST so price lookups work
+current.buf = {
+  price: smftBars.slice(),
+  osc:   osc.slice(),
+  up:    bandUp.slice(),
+  dn:    bandDn.slice()
+};
+
+// draw markers, then publish signals (delta vs empty on first load)
+series.setMarkers(markers);
+emitTradeSignals(INFO.sym.textContent, tf, [], markers);
 lastMarkers = markers;
 
-// keep local copies for markers/P&L
-current.buf = { price: smftBars.slice(), osc: osc.slice(), up: bandUp.slice(), dn: bandDn.slice() };
+// sync P/L HUD payload (your existing block below is fine)
 
 try {
   const priceByTime = Object.fromEntries(current.buf.price.map(b => [b.time, b.close]));
