@@ -4,7 +4,7 @@
        data-default-asset="All" data-rpm="48"
        data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
     <!-- Title (invisible label; keeps layout consistent) -->
-    <div class="cs-label" aria-hidden="true">CYCLA Screener</div>
+    <div class="cs-label" aria-hidden="true"></div>
 
     <!-- Upper button row -->
     <div class="cs-tools" aria-label="Screener Controls">
