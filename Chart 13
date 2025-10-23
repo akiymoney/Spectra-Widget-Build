@@ -1,0 +1,1052 @@
+<!-- CYCLA • Charting Panel (max 987x523) • live TwelveData + TF dropdown (patched TF cap) -->
+<div id="cycla-chart-center" style="--block-h: 523px;">
+  <div id="cycla-chart-widget" role="region" aria-label="Cycla Spectra" data-td-key="1079f6f5cca04a5f9f2849e3f7119a30">
+    <!-- Widget label -->
+    <div class="cp-label">CYCLA Spectra</div>
+
+    <!-- Upper HUD: Chart (987x377) -->
+    <div class="cp-hud cp-chart">
+      <!-- Overlay tools (top-left) -->
+      <div class="cp-tools" aria-label="Chart Tools">
+        <label class="cp-sr-only" for="cp-search">Search</label>
+        <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTCUSD, AAPL, EURUSD" />
+        <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">1m</button>
+        <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
+      </div>
+
+      <!-- Top-center info (377x34) -->
+      <div class="cp-info" aria-live="polite">
+       <span class="sym">BTCUSD</span><span class="sep">•</span><span class="name">—</span><span class="sep">•</span><span class="last">Last: —</span>
+      </div>
+
+      <!-- Lightweight Charts host (987x377) -->
+      <div id="lc-container" class="lc-host" role="img" aria-label="Price chart">
+        <!-- synthetic crosshair overlay (for inter-pane sync) -->
+        <div class="xhair-v" id="xhair-v-top"></div>
+      </div>
+
+      <!-- Crosshair tooltip (TradingView-style, bottom-anchored) -->
+      <div id="cp-tip" class="cp-tip cp-tip--bottom" aria-live="polite" role="status"></div>
+
+      <!-- TF dropdown -->
+      <div id="cp-tf-menu" class="cp-dd cp-dd--hidden" aria-label="Timeframes" role="menu">
+        <button data-tf="1m"  role="menuitem">1m</button>
+        <button data-tf="3m"  role="menuitem">3m</button>
+        <button data-tf="5m"  role="menuitem">5m</button>
+        <button data-tf="8m"  role="menuitem">8m</button>
+        <button data-tf="13m" role="menuitem">13m</button>
+        <button data-tf="21m" role="menuitem">21m</button>
+        <button data-tf="34m" role="menuitem">34m</button>
+        <button data-tf="1H"  role="menuitem">1H</button>
+        <button data-tf="1D"  role="menuitem">1D</button>
+        <button data-tf="1M"  role="menuitem">1M</button>
+      </div>
+    </div>
+
+    <!-- Lower HUD: SMFT Osc (987x144) -->
+    <div class="cp-hud cp-osc" aria-label="SMFT Osc">
+      <!-- Lightweight Charts host (987x144) -->
+      <div id="osc-container" class="osc-host" role="img" aria-label="SMFT Oscillator">
+        <!-- synthetic crosshair overlay (for inter-pane sync) -->
+        <div class="xhair-v" id="xhair-v-bot"></div>
+        <div class="xhair-h" id="xhair-h-bot"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ───────────────────────── Scoped to this block ───────────────────────── */
+  #cycla-chart-center * { box-sizing:border-box; }
+  #cycla-chart-center{
+    width:100%;
+    height:var(--block-h, 523px);
+    min-height:523px;
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+
+  /* Root widget — responsive down, capped at 987x523, transparent */
+  #cycla-chart-widget{
+    position:relative;
+    width:100%;
+    max-width:987px; /* ← requested max width */
+    height:auto;     /* natural height from children (377+2+144=523) */
+    max-height:523px;
+    margin:0 auto;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+    font: 13px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220;
+  }
+
+  /* Label (mirrored to top-right) */
+  #cycla-chart-widget .cp-label{
+    position:absolute; top:8px; left:auto; right:8px; z-index:4;
+    font-weight:700; font-size:12px; letter-spacing:.4px; color:#3b4a6b;
+    background:rgba(255,255,255,.75);
+    border:1px solid rgba(10,20,40,.12);
+    border-radius:8px; padding:6px 10px;
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+
+  /* HUD shells */
+  #cycla-chart-widget .cp-hud{
+    width:987px; margin:0 auto; position:relative;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    overflow:hidden;
+    backdrop-filter:saturate(140%) blur(6px);
+  }
+
+  /* Upper chart HUD — soft blue */
+  #cycla-chart-widget .cp-chart{
+    height:377px;
+    background:linear-gradient(180deg, #dceeff 0%, #cbe0fa 100%);
+  }
+
+  /* Lower oscillator HUD — pale green */
+  #cycla-chart-widget .cp-osc{
+    height:144px; margin-top:2px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, #d7f8e0 0%, #c8f3d5 100%);
+  }
+
+  /* Chart hosts */
+  #cycla-chart-widget .lc-host{
+    position:absolute; inset:0 0 0 0; top:0; left:0; height:377px; width:987px;
+  }
+  #cycla-chart-widget .osc-host{
+    position:absolute; inset:0 0 0 0; height:144px; width:987px;
+  }
+
+  /* Synthetic crosshair overlays (for inter-pane sync) */
+  .xhair-v{
+    position:absolute; top:0; bottom:0; width:1px;
+    background:rgba(20,40,80,.45);
+    pointer-events:none; opacity:0; transition:opacity .12s ease;
+  }
+  .xhair-h{
+    position:absolute; left:0; right:0; height:1px;
+    background:rgba(20,40,80,.35);
+    pointer-events:none; opacity:0; transition:opacity .12s ease;
+  }
+  .xhair--show{ opacity:1 !important; }
+
+  #cycla-chart-widget .cp-osc-inner{ font-weight:700; color:#3b4a6b; opacity:.66; }
+
+  /* Tools (top-left row) */
+  #cycla-chart-widget .cp-tools{
+    position:absolute; top:8px; left:8px; z-index:5; display:flex; gap:6px; align-items:center;
+  }
+  #cycla-chart-widget .cp-tool{
+    height:34px; min-width:34px; display:inline-flex; align-items:center; justify-content:center;
+    padding:0 10px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+    font-weight:610; color:#1b2a4a;
+  }
+  #cycla-chart-widget .cp-search{ width:144px; padding:0 8px; font-weight:610; outline:none; }
+  #cycla-chart-widget .cp-search::placeholder{ color:#5a6a8a; opacity:.89; }
+  #cycla-chart-widget .cp-tf{ width:55px; cursor:pointer; }
+  #cycla-chart-widget .cp-w{  width:34px; cursor:pointer; }
+
+  /* Top-center info (377x34) */
+  #cycla-chart-widget .cp-info{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:4;
+    width:377px; height:34px; display:flex; align-items:center; justify-content:center; gap:10px;
+    font-weight:700; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.78);
+    border:1px solid rgba(10,20,40,.14); border-radius:10px;
+    box-shadow:0 4px 12px rgba(8,16,40,.12);
+    backdrop-filter:saturate(140%) blur(4px);
+  }
+  #cycla-chart-widget .cp-info .sep{ opacity:.5; }
+  #cycla-chart-widget .cp-info .sym{ font-weight:800; }
+  #cycla-chart-widget .cp-info .last{ font-weight:800; color:#1b2a4a; }
+
+  /* TF dropdown (scoped) */
+  #cycla-chart-widget .cp-dd{
+    position:absolute; top:48px; left:8px; z-index:6;
+    display:grid; grid-template-columns: repeat(5, auto); gap:6px;
+    padding:8px; border-radius:10px;
+    background:rgba(255,255,255,.95);
+    border:1px solid rgba(10,20,40,.14);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+  }
+  #cycla-chart-widget .cp-dd--hidden{ display:none; }
+  #cycla-chart-widget .cp-dd > button{
+    height:34px; min-width:55px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:#fff; font-weight:700; cursor:pointer;
+  }
+  #cycla-chart-widget .cp-dd > button:hover{ background:#eef4ff; }
+
+  /* TradingView-style crosshair tooltip (bottom-anchored) */
+  #cycla-chart-widget .cp-tip{
+    position:absolute; z-index:7; pointer-events:none;
+    left:0; top:0; transform:translate(-50%, -120%);
+    padding:6px 10px; border-radius:10px;
+    background:rgba(255,255,255,.96);
+    border:1px solid rgba(10,20,40,.14);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+    font-weight:700; color:#1b2a4a; white-space:nowrap; opacity:0; transition:opacity .12s ease;
+  }
+  #cycla-chart-widget .cp-tip.cp-tip--show{ opacity:1; }
+  #cycla-chart-widget .cp-tip.cp-tip--bottom{
+    top:auto; bottom:8px; transform:translate(-50%, 0);
+  }
+
+  /* A11y helper */
+  .cp-sr-only{ position:absolute!important; inset:0 auto auto 0; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+</style>
+
+<!-- Lightweight Charts (small, CDN) -->
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<script>
+(()=>{
+// ───────────────────────── Config / Theme ─────────────────────────
+const ROOT  = document.getElementById('cycla-chart-widget');
+const TD_KEY = ROOT.getAttribute('data-td-key') || '';
+
+// Shared namespace + bus (single source of truth)
+window.CYCLA = window.CYCLA || {};
+window.CYCLA.TD_KEY = TD_KEY;                     // expose key for Screener fallback
+window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
+
+const RELAY = "https://spectra-trade-bot.onrender.com";
+
+let AUTO = false;
+let current = { buf: { price: [] } };
+let lastMarkers = []; // <-- keep this single, early declaration
+
+function toProductId(sym){
+  const s = String(sym||'').toUpperCase().replace(/\s+/g,'');
+  if (s.includes('-')) return s;
+  if (s.includes('/')) return s.replace('/', '-');
+  if (/^[A-Z0-9]+USD$/.test(s)) return s.replace(/USD$/, '-USD');
+  // Fallback: insert hyphen before last 3 chars (assumes USD quote)
+  return s.slice(0, -3) + '-' + s.slice(-3);
+}
+
+window.CYCLA.bus.addEventListener("cycla:auto:start", () => AUTO = true);
+window.CYCLA.bus.addEventListener("cycla:auto:stop",  () => AUTO = false);
+
+window.CYCLA.bus.addEventListener("cycla:signal", async (e) => {
+  if (!AUTO) return;
+  const { symbol, side, tf, time } = e.detail;
+  const clientOrderId = `${symbol}-${tf}-${time}-${side}`;
+
+
+const product_id = toProductId(symbol);
+const usd = Number(window?.CYCLA?.ORDER_USD ?? 5); // choose your default (5 while testing)
+
+await fetch(`${RELAY}/order`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    exchange: "coinbase",
+    product_id,
+    side,                          // "BUY" or "SELL"
+    usd,                           // notional in USD
+    client_order_id: clientOrderId // optional idempotency key
+  })
+ });
+});
+
+// Hook your buttons:
+document.querySelector("#autoBtn")?.addEventListener("click", ()=>{
+  window.CYCLA.bus.dispatchEvent(new CustomEvent("cycla:auto:start"));
+});
+
+document.querySelector("#ksBtn")?.addEventListener("click", async ()=>{
+  AUTO = false;
+  await fetch(`${RELAY}/killswitch`, { method:"POST" });
+  // also clear your Watchlist/Active HUDs locally
+  window.CYCLA.bus.dispatchEvent(new CustomEvent("cycla:trades:clear"));
+});
+
+// Surface missing-key to Screener's ECU
+if (!TD_KEY) {
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
+    detail: { level: 'err', msg: 'Missing TwelveData key (chart).' }
+  }));
+}
+
+// Let Screener load symbols into the chart without touching TF
+window.CYCLA.bus.addEventListener('cycla:load', (e) => {
+  const { symbol } = e.detail || {};
+  if (!symbol) return;
+  const tf = window.CYCLA.currentTF || '1m';
+  try {
+    load(symbol, tf);
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
+      detail: { level: 'ok', msg: `Chart loading ${symbol}…` }
+    }));
+  } catch (err) {
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
+      detail: { level: 'err', msg: `Chart load failed: ${err?.message || err}` }
+    }));
+  }
+});
+
+const DEFAULT_SYMBOL = 'BTCUSD';
+
+  // ► TZ PATCH: force all displayed times to Houston, TX (America/Chicago)
+  const TIMEZONE = 'America/Chicago';
+  const LOCALE = 'en-US';
+
+  // ► NEW: TwelveData outputsize safety cap to keep custom TFs working
+  const TD_LIMIT = 5000; // cap 1m pulls so 8–34m resampling stays within plan limits
+
+  const INFO = {
+    box:  ROOT.querySelector('.cp-info'),
+    sym:  ROOT.querySelector('.cp-info .sym'),
+    name: ROOT.querySelector('.cp-info .name'),
+    last: ROOT.querySelector('.cp-info .last')
+  };
+  const TF_BTN = ROOT.querySelector('.cp-tf');
+  const TF_MENU = ROOT.querySelector('#cp-tf-menu');
+  const SEARCH  = ROOT.querySelector('#cp-search');
+  const W_BTN   = ROOT.querySelector('.cp-w');
+
+// Chart: send symbol + TF to Trades widget
+W_BTN.addEventListener('click', ()=>{
+  try{
+    const uiSym =
+      (INFO?.sym?.textContent ? INFO.sym.textContent : current?.symbol || '')
+      .toString().trim().toUpperCase();
+    if(!uiSym) return;
+    const tf = (window.CYCLA?.currentTF || current?.tf || '1m'); // freeze TF
+    (window.CYCLA ||= {}).bus ||= new EventTarget();
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:watchlist:add', {
+      detail: { symbol: uiSym, tf }
+    }));
+  }catch(_){}
+});
+
+  const TIP     = ROOT.querySelector('#cp-tip');
+
+  // Crosshair overlay DOM
+  const XHAIR_V_TOP = ROOT.querySelector('#xhair-v-top');
+  const XHAIR_V_BOT = ROOT.querySelector('#xhair-v-bot');
+  const XHAIR_H_BOT = ROOT.querySelector('#xhair-h-bot');
+
+  // Chart theme (teal/purple)
+  const COLORS = {
+    up: '#14B8A6',
+    upBorder: '#0F766E',
+    down: '#723085',
+    downBorder: '#6D28D9',
+    wick: '#0A1F33',
+    grid: 'rgba(10,20,40,.10)',
+    text: '#1b2a4a',
+    band: 'rgba(10,20,40,.55)',
+    zero: 'rgba(10,20,40,.35)',
+  };
+
+  // TF map: native vs resample (from 1min)
+  const TF = {
+    '1m': { kind:'native', td:'1min' },
+    '3m': { kind:'resample', base:'1min', mult:3 },
+    '5m': { kind:'native', td:'5min' },
+    '8m': { kind:'resample', base:'1min', mult:8 },
+    '13m':{ kind:'resample', base:'1min', mult:13 },
+    '21m':{ kind:'resample', base:'1min', mult:21 },
+    '34m':{ kind:'resample', base:'1min', mult:34 },
+    '1H': { kind:'native', td:'1h' },
+    '1D': { kind:'native', td:'1day' },
+    '1M': { kind:'native', td:'1month' },
+  };
+
+  // ───────────────────────── Utilities ─────────────────────────
+// Accept BTC-USD / BTC/USD / BTCUSD / BTCUSDT, etc.
+// Convert to API symbol (BTC/USD) and UI symbol (BTCUSD)
+const KNOWN_QUOTES = ['USDT','USDC','USD','EUR','GBP','JPY','AUD','CAD','CHF','CNY','HKD','BTC','ETH','SOL','BNB'];
+
+const QUOTES_DESC = KNOWN_QUOTES.slice().sort((a,b)=>b.length-a.length);
+
+function normalizeSymbol(raw) {
+  let s = (raw || '').trim().toUpperCase();
+  if (!s) return s;
+  s = s.replace(/\s+/g, ''); // allow "btc usd" style input
+
+  // If user typed separators, normalize to single slash
+  if (s.includes('/') || s.includes('-')) {
+    return s.replace(/-/g, '/').replace(/\/+/g, '/');
+  }
+
+  // If slashless, split BASE+QUOTE using known quotes (longest first, pre-sorted)
+  for (const q of QUOTES_DESC) {
+    if (s.endsWith(q) && s.length > q.length) {
+      const base = s.slice(0, s.length - q.length);
+      if (base.length >= 2 && base.length <= 6) {
+        return `${base}/${q}`;
+      }
+    }
+  }
+  // Equities like AAPL just pass through
+  return s;
+}
+
+// UI wants slashless (BTCUSD)
+function toUiSymbol(sym) {
+  return String(sym || '')
+    .toUpperCase()
+    .replace(/[\/\-\s]/g, ''); // remove /, -, spaces
+}
+
+  const toEpoch = (iso) => Math.floor(new Date(iso.replace(' ', 'T')+'Z').getTime()/1000); // keep UTC from API
+  
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+
+  // TZ helpers (used by axis + crosshair)
+  function timeToDate(t){
+    if(typeof t === 'number'){ return new Date(t * 1000); }
+    if(t && typeof t === 'object' && 'timestamp' in t){ return new Date(t.timestamp * 1000); }
+    if(t && typeof t === 'object' && 'year' in t){
+      return new Date(Date.UTC(t.year, (t.month||1)-1, (t.day||1), 12, 0, 0));
+    }
+    return new Date(0);
+  }
+
+  // Formatters
+  const fmtDow     = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, weekday:'short' });
+  const fmtTime    = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, hour:'2-digit', minute:'2-digit' });
+  const fmtTimeSec = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const fmtDay     = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, month:'short', day:'2-digit' });
+  const fmtDate    = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, month:'short', day:'2-digit', year:'numeric' });
+  const fmtDateDow = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, weekday:'short', month:'short', day:'2-digit', year:'numeric' });
+  const fmtMonth   = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, month:'short', year:'numeric' });
+  const fmtYear    = new Intl.DateTimeFormat(LOCALE, { timeZone: TIMEZONE, year:'numeric' });
+
+  const MIDDAY_SHIFT_MS = 12 * 60 * 60 * 1000;
+  function shiftedIfDateOnly(d, tf){
+    if(tf === '1D' || tf === '1M') return new Date(d.getTime() + MIDDAY_SHIFT_MS);
+    return d;
+  }
+
+  function tickMarkFormatter(t, type){
+    const d = timeToDate(t);
+    switch(type){
+      case 'year':             return fmtYear.format(d);
+      case 'month':            return fmtMonth.format(d);
+      case 'day_of_month':     return fmtDay.format(d);
+      case 'time_with_seconds':return fmtTimeSec.format(d);
+      default:                 return fmtTime.format(d);
+    }
+  }
+
+  function crosshairTimeFormatter(t, tf){
+    let d = timeToDate(t);
+    d = shiftedIfDateOnly(d, tf);
+    if(tf === '1M') return fmtMonth.format(d);
+    if(tf === '1D') return fmtDateDow.format(d);
+    const hasSeconds = (tf === '1m' || tf === '3m' || tf === '5m' || tf === '8m' || tf === '13m' || tf === '21m' || tf === '34m');
+    return fmtDateDow.format(d) + ' ' + (hasSeconds ? fmtTimeSec.format(d) : fmtTime.format(d));
+  }
+
+  // Resampling
+  function resampleOHLC(bars, seconds){
+    if(!bars.length) return [];
+    const out = [];
+    const start = Math.floor(bars[0].time / seconds) * seconds;
+    let bucketStart = start, bucketEnd = start + seconds;
+    let cur = null;
+
+    for(const b of bars){
+      while(b.time >= bucketEnd){
+        if(cur){ out.push(cur); cur = null; }
+        bucketStart = bucketEnd;
+        bucketEnd += seconds;
+      }
+      if(!cur){
+        cur = { time: bucketStart, open:b.open, high:b.high, low:b.low, close:b.close };
+      }else{
+        cur.high = Math.max(cur.high, b.high);
+        cur.low  = Math.min(cur.low,  b.low);
+        cur.close = b.close;
+      }
+    }
+    if(cur){ out.push(cur); }
+    return out;
+  }
+
+  // ───────────────────────── SMFT (Spectral Memory) core ─────────────────────────
+  // Candles already use adaptive alpha via ATR% saturation memory.
+  const SMFT_PARAMS = { xi: 13.0, eSatPct: 5.0, gamma: 5.0, atrLen: 13 };
+
+  // Oscillator (Δ of SMFT close, normalized by ATR-RMA), with adaptive hysteresis bands
+  const OSC_PARAMS = { bandK: 0.34, bandLen: 34 }; // k per your spec; bands from RMA(|osc|)
+  function trueRange(h, l, prevClose){
+    if(prevClose == null) return h - l;
+    const a = h - l;
+    const b = Math.abs(h - prevClose);
+    const c = Math.abs(l - prevClose);
+    return Math.max(a, b, c);
+  }
+  function rmaNext(prev, x, len){ if(prev == null) return x; return (prev * (len - 1) + x) / len; }
+  function smftAlpha(atrPct, p){ const xiMem = Math.max(1, p.xi / (1 + Math.pow(atrPct / p.eSatPct, p.gamma))); return 2 / (xiMem + 1); }
+
+  function buildSMFT(bars, p=SMFT_PARAMS, op=OSC_PARAMS){
+    let prevClose = null, atrRma = null;
+    let oP = null, hP = null, lP = null, cP2 = null;
+
+    let prevSmftClose = null;
+    let oscAbsRma = null;
+
+    const smftBars = [];
+    const osc     = [];
+    const bandUp  = [];
+    const bandDn  = [];
+
+    for(const b of bars){
+      const tr = trueRange(b.high, b.low, prevClose);
+      atrRma = rmaNext(atrRma, tr, p.atrLen);
+      const atrPct = (atrRma / (b.close || 1)) * 100;
+      const alpha = smftAlpha(atrPct, p);
+
+      if(oP == null){ oP=b.open; hP=b.high; lP=b.low; cP2=b.close; }
+      else{
+        oP  = oP  + alpha * (b.open  - oP);
+        hP  = hP  + alpha * (b.high  - hP);
+        lP  = lP  + alpha * (b.low   - lP);
+        cP2 = cP2 + alpha * (b.close - cP2);
+      }
+
+      // SMFT bar for price pane
+      const prevCloseSmft = smftBars.length ? smftBars[smftBars.length - 1].close : cP2;
+      const rising = cP2 >= prevCloseSmft;
+      smftBars.push({ time:b.time, open:oP, high:hP, low:lP, close:cP2,
+                      color: rising ? COLORS.up : COLORS.down });
+
+      // Δ-oscillator (SMFT close delta normalized by ATR-RMA)
+      const dSmft = (prevSmftClose == null) ? 0 : (cP2 - prevSmftClose);
+      const norm  = (atrRma || Math.abs(dSmft) || 1);
+      const oscVal = dSmft / norm; // unitless, ATR-normalized
+      prevSmftClose = cP2;
+
+      // Adaptive hysteresis bands via RMA(|osc|) * k
+      oscAbsRma = rmaNext(oscAbsRma, Math.abs(oscVal), op.bandLen);
+      const bd = (oscAbsRma || 0) * op.bandK;
+
+      // Osc histogram (teal >= 0, purple < 0)
+      osc.push({ time:b.time, value: oscVal, color: (oscVal < 0 ? COLORS.down : COLORS.up) });
+      bandUp.push({ time:b.time, value: +bd });
+      bandDn.push({ time:b.time, value: -bd });
+
+      prevClose = b.close;
+    }
+
+    const state = {
+      params: p, oscParams: op,
+      prevClose, atrRma, oP, hP, lP, cP2,
+      prevSmftClose, oscAbsRma
+    };
+    return { smftBars, osc, bandUp, bandDn, state };
+  }
+
+  function smftStep(state, tailBars){
+    const p = state.params || SMFT_PARAMS;
+    const op = state.oscParams || OSC_PARAMS;
+    const smftBars = [];
+    const osc = [];
+    const bandUp = [];
+    const bandDn = [];
+
+    for(const b of tailBars){
+      const tr = trueRange(b.high, b.low, state.prevClose);
+      state.atrRma = rmaNext(state.atrRma, tr, p.atrLen);
+      const atrPct = (state.atrRma / (b.close || 1)) * 100;
+      const alpha = smftAlpha(atrPct, p);
+
+      if(state.oP == null){ state.oP=b.open; state.hP=b.high; state.lP=b.low; state.cP2=b.close; }
+      else{
+        state.oP  = state.oP  + alpha * (b.open  - state.oP);
+        state.hP  = state.hP  + alpha * (b.high  - state.hP);
+        state.lP  = state.lP  + alpha * (b.low   - state.lP);
+        state.cP2 = state.cP2 + alpha * (b.close - state.cP2);
+      }
+
+      const prevCloseSmft = smftBars.length ? smftBars[smftBars.length - 1].close : state.cP2;
+      const rising = state.cP2 >= prevCloseSmft;
+      smftBars.push({ time:b.time, open:state.oP, high:state.hP, low:state.lP, close:state.cP2,
+                      color: rising ? COLORS.up : COLORS.down });
+
+      const dSmft = (state.prevSmftClose == null) ? 0 : (state.cP2 - state.prevSmftClose);
+      const norm  = (state.atrRma || Math.abs(dSmft) || 1);
+      const oscVal = dSmft / norm;
+      state.prevSmftClose = state.cP2;
+
+      state.oscAbsRma = rmaNext(state.oscAbsRma, Math.abs(oscVal), op.bandLen);
+      const bd = (state.oscAbsRma || 0) * op.bandK;
+
+      osc.push({ time:b.time, value: oscVal, color: (oscVal < 0 ? COLORS.down : COLORS.up) });
+      bandUp.push({ time:b.time, value: +bd });
+      bandDn.push({ time:b.time, value: -bd });
+
+      state.prevClose = b.close;
+    }
+
+    return { smftBars, osc, bandUp, bandDn };
+  }
+
+  // ───────────────────────── TwelveData fetchers ─────────────────────────
+  async function fetchTDSeries(symbol, interval, size=1000){
+    if(!TD_KEY){ throw new Error('Missing TwelveData API key. Add data-td-key on #cycla-chart-widget.'); }
+    const url = new URL('https://api.twelvedata.com/time_series');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('interval', interval);
+    url.searchParams.set('outputsize', String(size));
+    url.searchParams.set('timezone', 'UTC');         // keep data in UTC
+    url.searchParams.set('format', 'JSON');
+    url.searchParams.set('order', 'ASC');
+    url.searchParams.set('apikey', TD_KEY);
+
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if(data.status === 'error' || !data.values){
+      const msg = data.message || 'TwelveData error';
+      throw new Error(msg);
+    }
+    // Map to Lightweight Charts format (ascending time)
+    return data.values.map(v => ({
+      time:  toEpoch(v.datetime), // seconds (UTC)
+      open:  parseFloat(v.open),
+      high:  parseFloat(v.high),
+      low:   parseFloat(v.low),
+      close: parseFloat(v.close),
+    }));
+  }
+
+  async function getBars(symbol, tfKey, wantBars=600){
+    const spec = TF[tfKey];
+    if(!spec) throw new Error('Unsupported TF: '+tfKey);
+
+    if(spec.kind === 'native'){
+      const native = await fetchTDSeries(
+        symbol,
+        spec.td,
+        clamp(Math.round(wantBars * 1.2), 300, TD_LIMIT) // cap native pulls
+      );
+      return native;
+    }else{
+      const mult = spec.mult;
+      const baseSize = Math.min(Math.round(wantBars * mult * 1.3), TD_LIMIT); // cap 1m pulls at 5k
+      const base = await fetchTDSeries(symbol, '1min', baseSize);
+      const out  = resampleOHLC(base, mult*60);
+      return out.slice(-Math.min(wantBars, out.length));
+    }
+  }
+
+  async function getTail(symbol, tfKey){
+    const spec = TF[tfKey];
+    if(spec.kind === 'native'){
+      const tail = await fetchTDSeries(symbol, spec.td, Math.min(3, TD_LIMIT));
+      return tail.slice(-3);
+    }else{
+      const baseTail = await fetchTDSeries(symbol, '1min', Math.min(spec.mult * 6, TD_LIMIT));
+      return resampleOHLC(baseTail, spec.mult*60).slice(-2);
+    }
+  }
+
+  // ───────────────────────── Charts bootstrap ─────────────────────────
+  const LC = window.LightweightCharts;
+  const PRICE_HOST = ROOT.querySelector('#lc-container');
+  const OSC_HOST   = ROOT.querySelector('#osc-container');
+
+  if(!LC || !LC.createChart){
+    PRICE_HOST.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b2a4a;font-weight:700;">Chart library failed to load.</div>';
+    return;
+  }
+
+// Price chart — transparent canvas so the cp-chart gradient is visible
+const chart = LC.createChart(PRICE_HOST, {
+  width:  PRICE_HOST.clientWidth,
+  height: PRICE_HOST.clientHeight,
+  layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
+  rightPriceScale: { borderVisible: false },
+  leftPriceScale:  { visible: false },
+  timeScale: {
+    borderVisible: false,
+    timeVisible: true,
+    secondsVisible: false,
+    tickMarkFormatter,
+  },
+  localization: { locale: LOCALE },
+  grid: { vertLines: { color: COLORS.grid }, horzLines: { color: 'rgba(10,20,40,.08)' } },
+  crosshair: { mode: 0 },
+});
+
+const series = chart.addCandlestickSeries({
+  upColor: COLORS.up, downColor: COLORS.down,
+  borderUpColor: COLORS.upBorder, borderDownColor: COLORS.downBorder,
+  wickUpColor: COLORS.wick, wickDownColor: COLORS.wick,
+});
+
+// ─── CYCLA Trades P/L HUD: recompute on pan/zoom ───
+chart.timeScale().subscribeVisibleTimeRangeChange((vis) => {
+  try {
+
+const priceData = (current?.buf?.price) || [];
+    const priceByTime = Object.fromEntries(priceData.map(b => [b.time, b.close]));
+
+    // If you cache lastMarkers (see steps below), pass it here; else [] is fine.
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:chart:markers', {
+      detail: { markers: lastMarkers || [], visible: vis, priceByTime }
+    }));
+  } catch (err) {
+    console.warn('CYCLA visible-range P/L sync failed:', err);
+  }
+});
+
+  // Oscillator chart (separate pane)
+  const chartOsc = LC.createChart(OSC_HOST, {
+    width:  OSC_HOST.clientWidth,
+    height: OSC_HOST.clientHeight,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: COLORS.text, fontSize: 12 },
+    rightPriceScale: { borderVisible: false },
+    leftPriceScale:  { visible: false },
+    timeScale: {
+      borderVisible: false,
+      timeVisible: true,
+      secondsVisible: false,
+      tickMarkFormatter,
+    },
+    localization: { locale: LOCALE },
+    grid: { vertLines: { color: COLORS.grid }, horzLines: { color: 'rgba(10,20,40,.08)' } },
+    crosshair: { mode: 0 }
+  });
+
+  // Osc series: histogram centered at 0
+  const oscSeries = chartOsc.addHistogramSeries({ priceFormat:{ type:'price', precision: 4, minMove: 0.0001 }, base: 0, });
+  // Bands + zero line
+  const bandUpSeries = chartOsc.addLineSeries({ color: COLORS.band, lineWidth: 1 });
+  const bandDnSeries = chartOsc.addLineSeries({ color: COLORS.band, lineWidth: 1 });
+  const zeroLine     = chartOsc.addLineSeries({ color: COLORS.zero, lineWidth: 1 });
+
+  // Keep exact sizes on resize
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: PRICE_HOST.clientWidth, height: PRICE_HOST.clientHeight });
+  }).observe(PRICE_HOST);
+  new ResizeObserver(() => {
+    chartOsc.applyOptions({ width: OSC_HOST.clientWidth, height: OSC_HOST.clientHeight });
+  }).observe(OSC_HOST);
+
+
+  // ───────────────────────── Inter-pane sync (crosshair • zoom • scroll) ─────────────────────────
+  let currentTF = '1m';
+  const tipShow = (x, label)=>{
+    TIP.textContent = label;
+    TIP.style.left = Math.max(8, Math.min(PRICE_HOST.clientWidth-8, x)) + 'px';
+    TIP.style.bottom = '8px';
+    TIP.style.top = '';
+    TIP.classList.add('cp-tip--show');
+  };
+  const tipHide = ()=> TIP.classList.remove('cp-tip--show');
+
+  // Maps for quick lookup of osc value by time
+  let oscByTime = new Map();
+
+// Emit 'cycla:signal' for NEW markers only (delta vs previous)
+function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers){
+  try{
+    const prevSet = new Set((prevMarkers||[]).map(m => `${m.time}|${m.text}`));
+    for(const m of (nextMarkers||[])){
+      const key = `${m.time}|${m.text}`; // "1698825600|BUY"
+      if (prevSet.has(key)) continue;
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:signal', {
+        detail: { symbol: String(symbolUI||'').toUpperCase(), tf, side: m.text, time: m.time }
+      }));
+    }
+  }catch(_){}
+}
+
+  function updateCrosshairFrom(src, param){
+    if(!param || !param.point || param.time === undefined){
+      XHAIR_V_TOP.classList.remove('xhair--show');
+      XHAIR_V_BOT.classList.remove('xhair--show');
+      XHAIR_H_BOT.classList.remove('xhair--show');
+      tipHide();
+      return;
+    }
+    const x = param.point.x;
+    // vertical sync (both panes share same width)
+    XHAIR_V_TOP.style.left = x + 'px';
+    XHAIR_V_BOT.style.left = x + 'px';
+    XHAIR_V_TOP.classList.add('xhair--show');
+    XHAIR_V_BOT.classList.add('xhair--show');
+
+    // bottom horizontal at osc value for that time (if available)
+    const t = (typeof param.time === 'number') ? param.time : (param.time.timestamp ?? null);
+    if(t != null && oscByTime.has(t)){
+      const v = oscByTime.get(t);
+      const y = oscSeries.priceToCoordinate(v);
+      if(y != null){
+        XHAIR_H_BOT.style.top = y + 'px';
+        XHAIR_H_BOT.classList.add('xhair--show');
+      }
+    }
+
+    // unified tooltip (bottom anchored on price pane)
+    const label = crosshairTimeFormatter(param.time, currentTF);
+    tipShow(x, label);
+  }
+
+  chart.subscribeCrosshairMove(param => updateCrosshairFrom('top', param));
+  chartOsc.subscribeCrosshairMove(param => updateCrosshairFrom('bot', param));
+  PRICE_HOST.addEventListener('mouseleave', ()=>{ XHAIR_V_TOP.classList.remove('xhair--show'); tipHide(); });
+  OSC_HOST.addEventListener('mouseleave',   ()=>{ XHAIR_V_BOT.classList.remove('xhair--show'); XHAIR_H_BOT.classList.remove('xhair--show'); });
+
+  // Zoom/scroll sync
+  let syncing = false;
+  function syncFromAtoB(a, b){
+    if(syncing) return;
+    const r = a.timeScale().getVisibleLogicalRange?.();
+    if(!r) return;
+    syncing = true;
+    b.timeScale().setVisibleLogicalRange(r);
+    syncing = false;
+  }
+  chart.timeScale().subscribeVisibleLogicalRangeChange(()=> syncFromAtoB(chart, chartOsc));
+  chartOsc.timeScale().subscribeVisibleLogicalRangeChange(()=> syncFromAtoB(chartOsc, chart));
+
+  // ───────────────────────── Load symbol + TF ─────────────────────────
+current = { symbol: normalizeSymbol(DEFAULT_SYMBOL), tf:'1m', poll:null, lastTime:0, smftState:null, buf:{ price:[], osc:[], up:[], dn:[] } };
+
+// ── applyTfLocalization (patched to keep shared TF in sync) ───────────────────
+function applyTfLocalization(tf){
+  window.CYCLA.currentTF = tf;   // <— new: share current TF with Screener early
+  currentTF = tf;
+
+  chart.applyOptions({
+    timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
+    localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
+  });
+  chartOsc.applyOptions({
+    timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
+    localization: { locale: LOCALE, timeFormatter: (t)=>crosshairTimeFormatter(t, tf) }
+  });
+}
+
+  function computeMarkers(priceBars, osc, up, dn){
+    const markers = [];
+    // Build quick time->close map for marker placement near candle
+    const closeByTime = new Map(priceBars.map(b => [b.time, b.close]));
+    for(let i=1;i<osc.length;i++){
+      const t0 = osc[i-1].time, t1 = osc[i].time;
+      const v0 = osc[i-1].value, v1 = osc[i].value;
+      const u0 = up[i-1].value,  u1 = up[i].value;
+      const d0 = dn[i-1].value,  d1 = dn[i].value;
+
+      if(v0 <= u0 && v1 > u1){ // cross above upper band → BUY (below bar)
+        markers.push({
+          time: t1, position: 'belowBar', shape: 'arrowUp',
+          color: COLORS.up, text: 'BUY'
+        });
+      }
+      if(v0 >= d0 && v1 < d1){ // cross under lower band → SELL (above bar)
+        markers.push({
+          time: t1, position: 'aboveBar', shape: 'arrowDown',
+          color: COLORS.down, text: 'SELL'
+        });
+      }
+    }
+    return markers;
+  }
+
+  async function load(symbolInput, tfInput){
+    try{
+      const symbol = normalizeSymbol(symbolInput || current.symbol);
+      const tf     = tfInput || current.tf;
+      if(current.poll){ clearInterval(current.poll); current.poll = null; }
+
+lastMarkers = [];                               // reset signal delta
+current.buf = { price:[], osc:[], up:[], dn:[] }; // init local buffers
+
+      TF_BTN.textContent = tf;
+INFO.sym.textContent = toUiSymbol(symbol);
+      INFO.name.textContent = '—';
+      INFO.last.textContent = 'Last: —';
+
+      applyTfLocalization(tf);
+
+      const rawBars = await getBars(symbol, tf, 800);
+      const { smftBars, osc, bandUp, bandDn, state } = buildSMFT(rawBars, SMFT_PARAMS, OSC_PARAMS);
+
+      // Price + SMFT candles on main
+      series.setData(smftBars);
+
+      // Osc + bands on lower pane
+      oscSeries.setData(osc);
+      bandUpSeries.setData(bandUp);
+      bandDnSeries.setData(bandDn);
+      zeroLine.setData(osc.map(d => ({ time:d.time, value:0 })));
+// BUY/SELL labels on main chart based on osc-band crossings
+const markers = computeMarkers(smftBars, osc, bandUp, bandDn);
+series.setMarkers(markers);
+
+emitTradeSignals(INFO.sym.textContent.trim().toUpperCase(), tf, [], markers);
+lastMarkers = markers;
+
+// keep local copies for markers/P&L
+current.buf = { price: smftBars.slice(), osc: osc.slice(), up: bandUp.slice(), dn: bandDn.slice() };
+
+try {
+  const priceByTime = Object.fromEntries(current.buf.price.map(b => [b.time, b.close]));
+  const vis = chart.timeScale().getVisibleRange();
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:chart:markers', {
+    detail: { markers, visible: vis, priceByTime }
+  }));
+} catch {}
+
+      // Indexing for crosshair horizontal sync
+      oscByTime = new Map(osc.map(d => [d.time, d.value]));
+
+      current.lastTime = smftBars.length ? smftBars[smftBars.length-1].time : 0;
+      current.smftState = state;
+
+      // Align panes and fit
+      chart.timeScale().fitContent();
+      syncFromAtoB(chart, chartOsc);
+
+      // Fetch instrument meta name (optional)
+      try{
+        const qURL = new URL('https://api.twelvedata.com/quote');
+        qURL.searchParams.set('symbol', symbol);
+        qURL.searchParams.set('apikey', TD_KEY);
+        const q = await fetch(qURL).then(r=>r.json());
+        if(q && q.name){ INFO.name.textContent = q.name; }
+        if(q && q.close){ INFO.last.textContent = 'Last: ' + Number(q.close).toFixed(2); }
+      }catch(e){ /* non-fatal */ }
+
+      // Start 5s / 15s “breathing” poll
+      const periodMs = (tf === '1H' || tf === '1D' || tf === '1M') ? 15000 : 5000;
+      current.poll = setInterval(async ()=>{
+        try{
+          const tail = await getTail(symbol, tf);
+          if(!tail.length) return;
+
+          // advance SMFT state with new tail bars
+          const stepped = smftStep(current.smftState, tail);
+
+        // stream updates to both panes + keep buffers in sync
+for (let i = 0; i < stepped.smftBars.length; i++) {
+  const pb = stepped.smftBars[i];
+  const ob = stepped.osc[i];
+  const ub = stepped.bandUp[i];
+  const db = stepped.bandDn[i];
+
+  const isNew = pb.time > current.lastTime;
+
+  // push to chart
+  series.update(pb);
+  oscSeries.update(ob);
+  bandUpSeries.update(ub);
+  bandDnSeries.update(db);
+  zeroLine.update({ time: ob.time, value: 0 });
+
+  // keep local buffers current
+  if (isNew) {
+    current.buf.price.push(pb);
+    current.buf.osc.push(ob);
+    current.buf.up.push(ub);
+    current.buf.dn.push(db);
+    current.lastTime = pb.time;
+  } else if (pb.time === current.lastTime) {
+    const n = current.buf.price.length - 1;
+    if (n >= 0) {
+      current.buf.price[n] = pb;
+      current.buf.osc[n]   = ob;
+      current.buf.up[n]    = ub;
+      current.buf.dn[n]    = db;
+    }
+  }
+}
+
+// Refresh oscByTime map (keep it small)
+for (const ob of stepped.osc) { oscByTime.set(ob.time, ob.value); }
+
+// Recompute recent markers on the latest ~600 bars
+const priceData = current.buf.price;
+const oscData   = current.buf.osc;
+const upData    = current.buf.up;
+const dnData    = current.buf.dn;
+
+const n = Math.min(oscData.length, priceData.length);
+const sliceFrom = Math.max(0, n - 600);
+
+const markers = computeMarkers(
+  priceData.slice(sliceFrom),
+  oscData.slice(sliceFrom),
+  upData.slice(sliceFrom),
+  dnData.slice(sliceFrom)
+);
+
+series.setMarkers(markers);      // paint markers first
+
+// NEW: publish trade signals for new markers only
+emitTradeSignals(INFO.sym.textContent.trim().toUpperCase(), current.tf, lastMarkers, markers);
+lastMarkers = markers;           // cache for pan/zoom sync
+
+// ─── CYCLA Trades P/L HUD sync ───
+try {
+  const priceByTime = Object.fromEntries(priceData.map(b => [b.time, b.close]));
+  const vis = chart.timeScale().getVisibleRange();
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:chart:markers', {
+    detail: { markers, visible: vis, priceByTime }
+  }));
+} catch (err) {
+  console.warn('CYCLA chart→trades P/L sync failed:', err);
+}
+
+          const lastRaw = tail[tail.length-1];
+          INFO.last.textContent = 'Last: ' + Number(lastRaw.close).toFixed(2);
+        }catch(e){}
+      }, periodMs);
+
+      current.symbol = symbol;
+      current.tf = tf;
+
+      // Search focus UX
+SEARCH.value = toUiSymbol(symbol);
+
+    }catch(err){
+      console.error(err);
+    }
+  }
+
+  // Search: Enter to load
+  SEARCH.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      const v = (SEARCH.value || '').trim();
+      if(v) load(v, current.tf);
+    }
+  });
+
+  // TF menu toggle + selection
+  TF_BTN.addEventListener('click', ()=>{
+    TF_MENU.classList.toggle('cp-dd--hidden');
+  });
+
+  TF_MENU.addEventListener('mouseleave', ()=> TF_MENU.classList.add('cp-dd--hidden'));
+  document.addEventListener('click', (e)=>{
+    if(!TF_MENU.contains(e.target) && e.target !== TF_BTN){
+      TF_MENU.classList.add('cp-dd--hidden');
+    }
+  });
+  TF_MENU.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tf = btn.getAttribute('data-tf');
+      TF_MENU.classList.add('cp-dd--hidden');
+      load(current.symbol, tf);
+    });
+  });
+
+  // Bootstrap
+  load(DEFAULT_SYMBOL, '1m');
+
+})();
+</script>
