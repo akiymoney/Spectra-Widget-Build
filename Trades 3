@@ -121,7 +121,7 @@
 
   // ───────────────────────── Helpers ─────────────────────────
   function uiNormalize(sym){
-    return String(sym||'').toUpperCase().replace(/[\/\s]/g,'').replace(/-+/g,'-');
+return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
   }
   function makeRow(sym, where){
     const row = document.createElement('div');
