@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cycla Spectral Screener — TwelveData (1H/1D/1W/1M + AVG) • SMFT Rising</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0a0f1a; --card:#0e1526; --grid:#1b243a; --text:#e6edf7; --muted:#8b95a7;
+    --teal:#5EEAD4; --purple:#8C3DE1; --ok:#10b981; --warn:#f59e0b; --err:#ef4444; --white:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:transparent;color:var(--text);font:13px/1.3 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+
+  /* === Screener container (spec) === */
+  #cycla-screener{
+    width:515px;height:490px;margin:8px auto;border:5px solid var(--white);border-radius:13px;overflow:hidden;background:var(--card);
+    display:flex;flex-direction:column;box-shadow:0 13px 34px rgba(0,0,0,.45),0 3px 8px rgba(0,0,0,.25)
+  }
+
+  /* HUD */
+  .hud{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.15)}
+  .hud select,.hud button{
+    height:34px;border:1px solid rgba(255,255,255,.15);background:#0b1120;color:var(--text);
+    border-radius:8px;padding:0 8px;outline:none;cursor:pointer
+  }
+  .hud button{background:#101a2f}
+  .hud button:hover{filter:brightness(1.1)}
+  .hud button.active{background:#162246;border-color:#27406f}
+  .hud .grow{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+  /* ECU button (LED + counter) */
+  .ecu-btn{display:flex;align-items:center;gap:5px;padding:0 8px}
+  .led{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 5px rgba(16,185,129,.7)}
+  .led.err{background:var(--err);box-shadow:0 0 5px rgba(239,68,68,.8)}
+  .ctr{min-width:21px;text-align:center;font-weight:610;color:#fff;background:rgba(255,255,255,.08);border-radius:5px;padding:0 5px}
+
+  /* Body panes */
+  .pane{flex:1;display:flex;flex-direction:column;min-height:0}
+  .status{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px dashed rgba(255,255,255,.08);color:var(--muted);font-size:13px}
+  .status .pill{padding:2px 5px;border-radius:987px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#cdd6e4}
+  .results{flex:1;overflow:auto;padding:5px 5px 8px}
+  .row{display:flex;align-items:center;gap:8px;padding:8px 8px;margin:5px 0;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(255,255,255,.03)}
+  .row .sym{font-weight:800;letter-spacing:.3px}
+  .row .badges{margin-left:auto;display:flex;gap:5px}
+  .badge{font-size:13px;padding:2px 5px;border-radius:987px;border:1px solid rgba(255,255,255,.15)}
+  .buy{color:#062; background:rgba(16,185,129,.15); border-color:rgba(16,185,129,.35)}
+  .sell{color:#32084f;background:rgba(140,61,225,.15); border-color:rgba(140,61,225,.35)}
+  .tf{color:#99a6bd;background:rgba(153,166,189,.15)}
+  .src{color:#5EEAD4;background:rgba(94,234,212,.12);border-color:rgba(94,234,212,.35)}
+  .src.rh{color:#ffd166;background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.45)}
+
+  /* ECU drawer */
+  .ecu{max-height:0;overflow:hidden;transition:max-height .21s ease;border-top:1px solid rgba(255,255,255,.08);background:#0b1222}
+  .ecu.open{max-height:144px}
+  .ecu-head{display:flex;align-items:center;gap:8px;padding:5px 8px;color:#d1d9e6;font-size:13px}
+  .ecu-head .sp{flex:1}
+  .ecu-body{height:144px;padding:5px 8px}
+  .ecu-body textarea{
+    width:100%;height:100%;resize:none;border:1px solid rgba(255,255,255,.12);background:#09101e;color:#e6edf7;border-radius:8px;padding:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+  }
+  .ecu-head .btn{height:21px;padding:0 8px;border-radius:5px;border:1px solid rgba(255,255,255,.15);background:#0e182c;color:#d7e0ef;cursor:pointer}
+  .ecu-head .btn:hover{filter:brightness(1.1)}
+</style>
+</head>
+<body>
+  <div id="cycla-screener">
+    <!-- HUD -->
+    <div class="hud">
+      <select id="universe">
+        <option value="stocks" selected>STOCKS</option>
+        <option value="crypto">CRYPTO</option>
+        <option value="etfs">ETFS</option>
+        <option value="all">ALL</option>
+      </select>
+      <select id="tf">
+        <option value="1h" selected>1H</option>
+        <option value="1day">1D</option>
+        <option value="1week">1W</option>
+        <option value="1month">1M</option>
+        <option value="avg3">AVG(1H+1D+1W)</option>
+      </select>
+      <button id="scan">SCAN</button>
+      <button id="stop">STOP</button>
+      <button id="rh" title="Restrict universe to Robinhood-tradeable">RH</button>
+      <div class="grow">
+        <button id="ecuToggle" class="ecu-btn" title="Open ECU / Debug">
+          <span class="led" id="led"></span>
+          <span class="ctr" id="errCount">0</span>
+          ECU
+        </button>
+      </div>
+    </div>
+
+    <!-- Status and Results -->
+    <div class="pane">
+      <div class="status">
+        <span id="stat">Idle.</span>
+        <span class="pill" id="qStat">Queue: 0</span>
+        <span class="pill" id="rpmStat">0 rpm</span>
+        <span class="pill" id="hitStat">Hits: 0</span>
+        <span class="pill" id="modePill" style="display:none">RH MODE</span>
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+
+    <!-- ECU Drawer -->
+    <div class="ecu" id="ecu">
+      <div class="ecu-head">
+        <strong>ECU / Diagnostics</strong>
+        <span class="sp"></span>
+        <button class="btn" id="copyLog">Copy</button>
+        <button class="btn" id="clearLog">Clear</button>
+      </div>
+      <div class="ecu-body">
+        <textarea id="log" spellcheck="false" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+/* ===============================
+   Config (TwelveData + Throttling)
+   =============================== */
+const TD_KEY = "1079f6f5cca04a5f9f2849e3f7119a30"; // client-side demo; rotate/proxy for prod
+const PLAN_RPM = 120;
+let EFFECTIVE_RPM = Math.floor(PLAN_RPM * 0.9);
+let REQUEST_INTERVAL_MS = Math.max(250, Math.floor(60000 / Math.max(1, EFFECTIVE_RPM)));
+
+/* RH crypto list (mapped to /USD) */
+const RH_CRYPTO_BASES = [
+  'BTC','ETH','DOGE','LTC','BCH','ETC','SOL','ADA','AAVE','AVAX','LINK','COMP','MATIC','UNI','SHIB','XLM','USDC','DOT'
+];
+
+const UI = {
+  universe: document.getElementById('universe'),
+  tf: document.getElementById('tf'),
+  scan: document.getElementById('scan'),
+  stop: document.getElementById('stop'),
+  rh: document.getElementById('rh'),
+  stat: document.getElementById('stat'),
+  qStat: document.getElementById('qStat'),
+  rpmStat: document.getElementById('rpmStat'),
+  results: document.getElementById('results'),
+  ecu: document.getElementById('ecu'),
+  ecuToggle: document.getElementById('ecuToggle'),
+  led: document.getElementById('led'),
+  errCount: document.getElementById('errCount'),
+  log: document.getElementById('log'),
+  copyLog: document.getElementById('copyLog'),
+  clearLog: document.getElementById('clearLog'),
+  hitStat: document.getElementById('hitStat'),
+  modePill: document.getElementById('modePill'),
+};
+UI.rpmStat.textContent = `${EFFECTIVE_RPM} rpm`;
+
+/* ===============================
+   ECU / Logger
+   =============================== */
+let errorCounter = 0;
+function logln(msg, isErr=false){
+  const t = new Date().toISOString().replace('T',' ').replace('Z','');
+  UI.log.value += `[${t}] ${msg}\n`;
+  UI.log.scrollTop = UI.log.scrollHeight;
+  if(isErr){
+    errorCounter++;
+    UI.errCount.textContent = String(errorCounter);
+    UI.led.classList.add('err');
+  }
+}
+UI.ecuToggle.addEventListener('click', ()=> UI.ecu.classList.toggle('open'));
+UI.copyLog.addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText(UI.log.value || ''); }catch(e){}
+});
+UI.clearLog.addEventListener('click', ()=>{
+  UI.log.value = '';
+  errorCounter = 0;
+  UI.errCount.textContent = '0';
+  UI.led.classList.remove('err');
+});
+
+/* ===============================
+   SMFT Oscillator (inlined)
+   =============================== */
+class RMA {
+  constructor(len){ this.len = Math.max(1, len|0); this._v=null; }
+  next(x){ this._v = this._v==null ? x : (this._v*(this.len-1)+x)/this.len; return this._v; }
+  get value(){ return this._v; }
+}
+class ATR {
+  constructor(len){ this.len = Math.max(1, len|0); this.rma = new RMA(this.len); this._pc=null; }
+  next(h,l,c){
+    const tr = this._pc==null ? (h-l) : Math.max(h-l, Math.abs(h-this._pc), Math.abs(l-this._pc));
+    this._pc = c; return this.rma.next(tr);
+  }
+  get value(){ return this.rma.value; }
+}
+class SMFT {
+  constructor({ xiCosmic=13.0, ESatPct=3.0, gamma=3.0, atrLen=13 }={}) {
+    this.params={xiCosmic,ESatPct,gamma,atrLen}; this.atr=new ATR(atrLen);
+    this._o=this._h=this._l=this._c=this._pc=null;
+  }
+  step(bar){
+    const {open,high,low,close}=bar;
+    const atrNow=this.atr.next(high,low,close)||0;
+    const atrPct=100*atrNow/Math.max(1e-9,close);
+    const {xiCosmic,ESatPct,gamma}=this.params;
+    const xi=xiCosmic/(1+Math.pow(atrPct/ESatPct,gamma));
+    const a=2/(Math.max(1,xi)+1);
+    this._o=this._o==null?open:this._o+a*(open -this._o);
+    this._h=this._h==null?high:this._h+a*(high -this._h);
+    this._l=this._l==null?low :this._l+a*(low  -this._l);
+    this._c=this._c==null?close:this._c+a*(close-this._c);
+    const rising=this._pc==null?true:(this._c>this._pc); this._pc=this._c;
+    return {open:this._o,high:this._h,low:this._l,close:this._c,rising};
+  }
+}
+function smftCloses(candles, opts){
+  const smft=new SMFT(opts); const out=[];
+  for(const b of candles) out.push(smft.step(b).close);
+  return out;
+}
+function smftOsc(series){
+  const c=series; const out=new Array(Math.max(0,c.length-1));
+  for(let i=1;i<c.length;i++) out[i-1]=c[i]-c[i-1];
+  return out;
+}
+function oscPrevLast(closes){
+  if(!closes || closes.length<2) return null;
+  const osc = smftOsc(closes);
+  if(osc.length<2) return null;
+  return { prev: osc[osc.length-2], last: osc[osc.length-1] };
+}
+
+/* STRICT: rising slope on the last closed bar (last > prev), regardless of sign */
+function risingAtLastClose(candles, opts){
+  if(!Array.isArray(candles) || candles.length < 3) return null;
+  const closes = smftCloses(candles, opts);
+  const ol = oscPrevLast(closes);
+  if(!ol) return null;
+  return (ol.last > ol.prev);
+}
+
+/* ===============================
+   Fetch Utils
+   =============================== */
+async function fetchJSON(url){
+  const r=await fetch(url);
+  if(!r.ok){ throw new Error(`HTTP ${r.status} ${r.statusText}`); }
+  const j=await r.json();
+  if(j.status && j.status!=="ok" && j.code){ throw new Error(`${j.code}: ${j.message||'TD error'}`); }
+  return j;
+}
+
+/* --- helpers for crypto normalization --- */
+function dedupe(arr){ return [...new Set(arr)]; }
+function normalizeCryptoUSDList(items){
+  const out = [];
+  for(const x of items || []){
+    const raw = (x.symbol || '').trim();
+    if(!raw) continue;
+
+    if(raw.includes('/')){
+      const [base, quote] = raw.split('/');
+      if(!base || !quote) continue;
+      if(quote.toUpperCase() !== 'USD') continue;
+      out.push(`${base.toUpperCase()}/USD`);
+      continue;
+    }
+
+    const base = (x.currency_base || raw).toString().trim().toUpperCase();
+    const quote = (x.currency_quote || 'USD').toString().trim().toUpperCase();
+    if(!base) continue;
+    if(quote !== 'USD') continue;
+    out.push(`${base}/USD`);
+  }
+  return dedupe(out).filter(s => /^[A-Z0-9._-]+\/USD$/.test(s));
+}
+
+/* --- RH universe helpers --- */
+function rhAllowedExchange(name=''){
+  const n = (name||'').toUpperCase();
+  // Allow: NASDAQ, NYSE, NYSE ARCA, NYSE AMERICAN, IEX, MEMX, CBOE.* ; Exclude: OTC, PINK
+  if(n.includes('OTC') || n.includes('PINK')) return false;
+  return (
+    n.includes('NASDAQ') ||
+    n === 'NYSE' || n.includes('NYSE ARCA') || n.includes('NYSE AMERICAN') ||
+    n.startsWith('CBOE') || n.startsWith('CBOE BZX') || n.startsWith('CBOE BYX') ||
+    n.includes('IEX') || n.includes('MEMX')
+  );
+}
+
+/* ===============================
+   Universe Builder
+   =============================== */
+async function getUniverse(kind, filterKind){
+  try{
+    if(kind==='stocks'){
+      const url=`https://api.twelvedata.com/stocks?country=United%20States&symbol_type=common%20stock&format=JSON&apikey=${TD_KEY}`;
+      const j=await fetchJSON(url);
+      const arr=(j.data||j);
+      return arr.map(x=>x.symbol).filter(Boolean).slice(0,1500);
+    }
+    if(kind==='crypto'){
+      const url=`https://api.twelvedata.com/cryptocurrencies?format=JSON&apikey=${TD_KEY}`;
+      const j=await fetchJSON(url);
+      const items = (j.data || j || []);
+      const usdPairs = normalizeCryptoUSDList(items);
+      const universe = usdPairs.slice(0,1200);
+      logln(`Crypto universe (USD pairs) after normalize: ${universe.length}`);
+      return universe;
+    }
+    if(kind==='etfs'){
+      const url=`https://api.twelvedata.com/etfs?country=United%20States&format=JSON&apikey=${TD_KEY}`;
+      const j=await fetchJSON(url);
+      const arr=(j.data||j);
+      return arr.map(x=>x.symbol).filter(Boolean).slice(0,1200);
+    }
+    if(kind==='all'){
+      const [s,c,e]=await Promise.all([getUniverse('stocks'),getUniverse('crypto'),getUniverse('etfs')]);
+      return [...new Set([...s,...c,...e])];
+    }
+
+    /* ===== RH subset respects Asset Type dropdown via filterKind ===== */
+    if(kind==='rh'){
+      // Stocks: U.S. common stocks on allowed exchanges (exclude OTC/pink)
+      const sUrl=`https://api.twelvedata.com/stocks?country=United%20States&symbol_type=common%20stock&format=JSON&apikey=${TD_KEY}`;
+      const sJ = await fetchJSON(sUrl);
+      const sArr=(sJ.data||sJ);
+      const rhStocks = sArr
+        .filter(x=> rhAllowedExchange(x.exchange))
+        .map(x=>x.symbol);
+
+      // ETFs: U.S.-listed ETFs
+      const eUrl=`https://api.twelvedata.com/etfs?country=United%20States&format=JSON&apikey=${TD_KEY}`;
+      const eJ = await fetchJSON(eUrl);
+      const eArr=(eJ.data||eJ);
+      const rhEtfs = eArr.map(x=>x.symbol);
+
+      // Crypto: only the declared RH coins (USD-quoted)
+      const rhCrypto = RH_CRYPTO_BASES.map(b=>`${b}/USD`);
+
+      const sel = (filterKind || 'all').toLowerCase();
+      let uni = [];
+      if(sel === 'stocks') uni = rhStocks;
+      else if(sel === 'crypto') uni = rhCrypto;
+      else if(sel === 'etfs') uni = rhEtfs;
+      else uni = dedupe([...rhStocks, ...rhEtfs, ...rhCrypto]);
+
+      logln(`RH universe [${sel.toUpperCase()}] → stocks:${rhStocks.length} etfs:${rhEtfs.length} crypto:${rhCrypto.length} selected:${uni.length}`);
+      return uni;
+    }
+  }catch(e){
+    logln(`Universe fetch failed (${kind}${filterKind?'/'+filterKind:''}): ${e.message}`, true);
+    throw e;
+  }
+}
+
+/* ===============================
+   Timeframe mapping → TwelveData
+   =============================== */
+function tfToInterval(tf){
+  if(tf==='1day')  return '1day';
+  if(tf==='1week') return '1week';
+  if(tf==='1month')return '1month';
+  if(tf==='avg3')  return null; // special composite TF handled separately
+  return '1h'; // default
+}
+
+/* Helpers to fetch candles */
+async function fetchCandles(sym, interval, outsize=180){
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${interval}&outputsize=${outsize}&order=desc&apikey=${TD_KEY}`;
+  const j = await fetchJSON(url);
+  const vals=(j&&j.values)||[];
+  // reverse → oldest..newest
+  return [...vals].reverse().map(v=>({
+    open:+v.open, high:+v.high, low:+v.low, close:+v.close
+  }));
+}
+
+/* ===============================
+   Regime: AVG(1H,1D,1W) rising (lastAvg > prevAvg)
+   =============================== */
+async function risingAvg_1H_1D_1W(sym, outsize=180, opts){
+  try{
+    const [b1h,b1d,b1w] = await Promise.all([
+      fetchCandles(sym, '1h', outsize),
+      fetchCandles(sym, '1day', outsize),
+      fetchCandles(sym, '1week', outsize),
+    ]);
+
+    const ol1h = oscPrevLast(smftCloses(b1h, opts));
+    const ol1d = oscPrevLast(smftCloses(b1d, opts));
+    const ol1w = oscPrevLast(smftCloses(b1w, opts));
+    if(!ol1h || !ol1d || !ol1w) return false;
+
+    const prevAvg = (ol1h.prev + ol1d.prev + ol1w.prev)/3;
+    const lastAvg = (ol1h.last + ol1d.last + ol1w.last)/3;
+    return (lastAvg > prevAvg);
+  }catch(e){
+    logln(`AVG(1H,1D,1W) failed for ${sym}: ${e.message}`, true);
+    return false;
+  }
+}
+
+/* ===============================
+   Queue / Throttler
+   =============================== */
+class RequestQueue{
+  constructor(intervalMs){ this.interval=intervalMs; this.q=[]; this.timer=null; this.active=false; }
+  push(task){ this.q.push(task); this.updateUI(); if(!this.timer) this.start(); }
+  setIntervalMs(ms){ this.interval=Math.max(100, ms|0); if(this.timer){ clearInterval(this.timer); this.timer=null; this.start(); } }
+  start(){
+    if(this.timer) return;
+    this.active=true;
+    this.timer=setInterval(async ()=>{
+      if(this.q.length===0){ this.stop(); return; }
+      const job=this.q.shift();
+      this.updateUI();
+      try{ await job(); }catch(e){ /* job should log */ }
+    }, this.interval);
+  }
+  stop(){ if(this.timer){ clearInterval(this.timer); this.timer=null; } this.active=false; this.updateUI(); }
+  clear(){ this.q.length=0; this.updateUI(); }
+  size(){ return this.q.length; }
+  updateUI(){ UI.qStat.textContent = `Queue: ${this.q.length}`; UI.stat.textContent = this.active? 'Scanning…' : 'Stopped.'; }
+}
+const Q = new RequestQueue(REQUEST_INTERVAL_MS);
+
+/* ===============================
+   Scanner
+   =============================== */
+let abortFlag = false;
+let hitCount = 0;
+let rhMode = false;
+
+function tfLabel(tf){
+  return tf==='avg3' ? 'AVG(1H,1D,1W)' : tf.toUpperCase();
+}
+
+function renderHit({symbol, tf, source='TD', type='BUY'}){
+  const row=document.createElement('div'); row.className='row';
+  const sym=document.createElement('div'); sym.className='sym'; sym.textContent=symbol;
+  const badges=document.createElement('div'); badges.className='badges';
+  const bType=document.createElement('span'); bType.className=`badge ${type==='BUY'?'buy':'sell'}`; bType.textContent=type;
+  const bTF=document.createElement('span'); bTF.className='badge tf'; bTF.textContent=tfLabel(tf);
+  const bSrc=document.createElement('span'); bSrc.className=`badge src ${rhMode?'rh':''}`; bSrc.textContent=rhMode?'RH':'TD';
+  badges.append(bType,bTF,bSrc);
+  row.append(sym,badges);
+  UI.results.append(row);
+  hitCount++; UI.hitStat.textContent='Hits: '+hitCount;
+}
+
+function clearResults(){ UI.results.innerHTML=''; hitCount=0; UI.hitStat.textContent='Hits: 0'; }
+
+async function scanUniverse(){
+  abortFlag=false;
+  clearResults();
+
+  const universeSel = UI.universe.value;           // stocks | crypto | etfs | all
+  const tfSel = UI.tf.value;                       // 1h | 1day | 1week | 1month | avg3
+  const interval = tfToInterval(tfSel);
+  const kind = rhMode ? 'rh' : universeSel;        // when RH on, force RH but pass selected asset type
+
+  // Adjust RPM if composite TF (avg3) is used: ~3x requests per symbol
+  const mult = (tfSel === 'avg3') ? 3 : 1;
+  const effRpm = Math.max(1, Math.floor(EFFECTIVE_RPM / mult));
+  REQUEST_INTERVAL_MS = Math.max(250, Math.floor(60000 / effRpm));
+  Q.setIntervalMs(REQUEST_INTERVAL_MS);
+  UI.rpmStat.textContent = `${effRpm} rpm`;
+
+  // RH pill
+  if(rhMode){
+    UI.modePill.style.display = '';
+    UI.modePill.textContent = `RH • ${universeSel.toUpperCase()}`;
+  }else{
+    UI.modePill.style.display = 'none';
+  }
+
+  let symbols = await getUniverse(kind, universeSel);
+  if(!symbols || symbols.length===0){ UI.stat.textContent='No symbols found.'; return; }
+
+  const srcNote = rhMode ? `RH/${universeSel.toUpperCase()}` : universeSel.toUpperCase();
+  UI.stat.textContent = `Scheduling ${symbols.length} ${srcNote} @ ~${effRpm} rpm…`;
+
+  // Build jobs
+  const jobs = symbols.map(sym => async ()=>{
+    if(abortFlag) return;
+    try{
+      if(tfSel === 'avg3'){
+        const ok = await risingAvg_1H_1D_1W(sym, 180);
+        if(ok === true){
+          renderHit({symbol:sym, tf:tfSel, source: rhMode ? 'RH' : 'TD', type:'BUY'});
+        }
+      }else{
+        const bars = await fetchCandles(sym, interval, 180);
+        const rising = risingAtLastClose(bars);
+        if(rising === true){
+          renderHit({symbol:sym, tf:tfSel, source: rhMode ? 'RH' : 'TD', type:'BUY'});
+        }
+      }
+    }catch(e){
+      logln(`Scan error ${sym}: ${e.message}`, true);
+    }
+  });
+
+  // Enqueue
+  for(const job of jobs) Q.push(job);
+  Q.start();
+
+  if(tfSel === 'avg3'){
+    logln('AVG(1H+1D+1W) mode: each symbol makes 3x candle requests; consider limiting universe if you see 429s.');
+  }
+}
+
+/* ===============================
+   Wire HUD
+   =============================== */
+UI.scan.addEventListener('click', ()=>{
+  if(Q.active){ logln('Scan requested while active → restarting.'); Q.clear(); Q.stop(); }
+  scanUniverse().catch(e=> logln(`Scan failed: ${e.message}`, true));
+});
+UI.stop.addEventListener('click', ()=>{
+  abortFlag=true;
+  Q.clear(); Q.stop();
+  UI.stat.textContent='Stopped.';
+  logln('STOP pressed — queue cleared.');
+});
+
+/* RH toggle button: respects Asset Type dropdown */
+UI.rh.addEventListener('click', ()=>{
+  rhMode = !rhMode;
+  UI.rh.classList.toggle('active', rhMode);
+  if(rhMode){
+    UI.modePill.style.display = '';
+    UI.modePill.textContent = `RH • ${UI.universe.value.toUpperCase()}`;
+    logln(`RH mode ON — restricting universe to Robinhood-tradeable (${UI.universe.value.toUpperCase()}).`);
+  }else{
+    UI.modePill.style.display = 'none';
+    logln('RH mode OFF — using dropdown universe (TwelveData).');
+  }
+});
+
+/* Optional: update pill live if user changes asset type while RH is ON */
+UI.universe.addEventListener('change', ()=>{
+  if(rhMode){
+    UI.modePill.textContent = `RH • ${UI.universe.value.toUpperCase()}`;
+    logln(`RH subset switched to ${UI.universe.value.toUpperCase()}.`);
+  }
+});
+</script>
+</body>
+</html>
