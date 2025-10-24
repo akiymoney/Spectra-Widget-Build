@@ -6,7 +6,7 @@
     <!-- Top HUD: P/L (233x89) -->
     <section class="tp-hud tp-pl" aria-label="P/L">
       <header class="tp-hdr">P/L</header>
-      <div class="tp-pl-body" id="tp-pl-body">—</div>
+<div class="tp-pl-body" id="tp-pl-body" aria-live="polite" role="status">—</div>
     </section>
 
     <!-- Second HUD: Watchlist (233x144) -->
@@ -74,6 +74,7 @@
     border:1px solid rgba(10,20,40,.12); cursor:pointer; user-select:none;
   }
   .tp-row-item:hover{ background:#eef7ff; }
+.tp-row-item:focus { outline: 2px solid #60a5fa; outline-offset: 2px; }
   .tp-sym{ font-weight:800; color:#1b2a4a; }
   .tp-mini{ display:flex; gap:4px; }
   .tp-chip{
@@ -101,15 +102,14 @@
   const ROOT = document.getElementById('cycla-trades-widget');
 
   // Global bus (same one used by Screener/Chart)
-  window.CYCLA = window.CYCLA || {};
-// ---- Fee config (your current fee tier) ----
-(window.CYCLA ||= {});
-window.CYCLA.FEE = window.CYCLA.FEE || {
+window.CYCLA ??= {};
+window.CYCLA.FEE ??= {
   venue: 'spot',         // 'spot' | 'derivatives'
   mode:  'taker',        // assume taker unless you *know* you're maker
   spot: { maker: 0.0040, taker: 0.0080 },          // 0.40% | 0.80%
   derivatives: { maker: 0.0002, taker: 0.0002 }    // 0.02% | 0.02%
 };
+
 // Quick switches you can do in console if needed:
 // CYCLA.FEE.mode = 'maker'        // if you know orders rest and make
 // CYCLA.FEE.venue = 'derivatives' // if you flip to perps
@@ -128,6 +128,10 @@ window.CYCLA.FEE = window.CYCLA.FEE || {
   const WATCH  = ROOT.querySelector('#tp-watch');
   const ACTIVE = ROOT.querySelector('#tp-active');
   const BTN_AUTO = ROOT.querySelector('#tp-auto');
+
+// ADD: expose pressed state for a11y
+BTN_AUTO.setAttribute('aria-pressed', 'false');
+
   const BTN_KS   = ROOT.querySelector('#tp-ks');
   const PL_BOX   = ROOT.querySelector('#tp-pl-body');
 
@@ -140,32 +144,45 @@ window.CYCLA.FEE = window.CYCLA.FEE || {
   function uiNormalize(sym){
 return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
   }
-  function makeRow(sym, where){
-    const row = document.createElement('div');
-    row.className = 'tp-row-item';
-    row.setAttribute('role','option');
-    row.dataset.sym = sym;
 
-    const left = document.createElement('div');
-    left.className = 'tp-sym';
-    left.textContent = sym;
+function makeRow(sym, where){
+  const row = document.createElement('div');
+  row.className = 'tp-row-item';
+  row.setAttribute('role','option');
+  row.dataset.sym = sym;
 
-    const right = document.createElement('div');
-    right.className = 'tp-mini';
-    const chip = document.createElement('div');
-    chip.className = 'tp-chip';
-    chip.textContent = where;
-    right.appendChild(chip);
+  // ADD: make focusable with keyboard
+  row.tabIndex = 0;
 
-    row.appendChild(left); row.appendChild(right);
+  const left = document.createElement('div');
+  left.className = 'tp-sym';
+  left.textContent = sym;
 
-    // Clicking any row loads that symbol on the chart (same as Screener)
-    row.addEventListener('click', ()=>{
+  const right = document.createElement('div');
+  right.className = 'tp-mini';
+  const chip = document.createElement('div');
+  chip.className = 'tp-chip';
+  chip.textContent = where;
+  right.appendChild(chip);
+
+  row.appendChild(left); row.appendChild(right);
+
+  // Existing: click loads symbol on the chart
+  row.addEventListener('click', ()=>{
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
+  });
+
+  // ADD: keyboard activation (Enter/Space)
+  row.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
       window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
-    });
+    }
+  });
 
-    return row;
-  }
+  return row;
+}
+
   function renderList(container, set, where){
     container.innerHTML = '';
     for(const sym of set){
@@ -179,40 +196,53 @@ return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
     renderList(ACTIVE, activeSet, 'Active');
   });
 
-  // ✅ AUTO should *also* start auto-trading, not just move symbols
-  BTN_AUTO.addEventListener('click', ()=>{
-    // start engine
+// Toggle AUTO on/off and reflect state in aria-pressed
+BTN_AUTO.addEventListener('click', () => {
+  const pressed = BTN_AUTO.getAttribute('aria-pressed') === 'true';
+
+  if (!pressed) {
+    // Turn AUTO ON
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
-   window.CYCLA.ORDER_USD = 5;
+    window.CYCLA.ORDER_USD = 3;
+    BTN_AUTO.setAttribute('aria-pressed', 'true');
 
-    // keep your current behavior (move watch → active)
-    if (watchSet.size === 0) return;
-    for (const s of watchSet) activeSet.add(s);
-    watchSet.clear();
-    renderList(WATCH, watchSet, 'Watch');
-    renderList(ACTIVE, activeSet, 'Active');
-  });
-
-  // ✅ KS should stop engine, clear UI, and (if we know RELAY) poke the backend
-  BTN_KS.addEventListener('click', async ()=>{
+    // Move Watch → Active (existing behavior)
+    if (watchSet.size) {
+      for (const s of watchSet) activeSet.add(s);
+      watchSet.clear();
+      renderList(WATCH, watchSet, 'Watch');
+      renderList(ACTIVE, activeSet, 'Active');
+    }
+  } else {
+    // Turn AUTO OFF
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
+    // Button will also be reset by the global listener below
+  }
+});
 
-    if (RELAY) { try { await fetch(`${RELAY}/killswitch`, { method:'POST' }); } catch(_){} }
+// Whenever AUTO stops (from anywhere), reflect it on the button
+window.CYCLA.bus.addEventListener('cycla:auto:stop', () => {
+  BTN_AUTO.setAttribute('aria-pressed', 'false');
+});
 
-    activeSet.clear();
-    renderList(ACTIVE, activeSet, 'Active');
-  });
+BTN_KS.addEventListener('click', async ()=>{
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
+  BTN_AUTO.setAttribute('aria-pressed', 'false');   // ← add this line
+
+  if (RELAY) { try { await fetch(`${RELAY}/killswitch`, { method:'POST' }); } catch(_){} }
+});
 
 // ───────────────────────── P/L HUD patch (fee-aware ledger, net P/L) ─────────────────────────
-const fmtUSD = (n)=> Number(n||0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+const fmtUSD = (n)=> Number(n||0).toLocaleString('en-US',{ minimumFractionDigits:2, maximumFractionDigits:2 });
+
 function feeRate(){
   const F = window?.CYCLA?.FEE || {};
   const book = F[F.venue || 'spot'] || { maker:0, taker:0 };
   return (F.mode === 'maker' ? book.maker : book.taker) || 0;
 }
 function sizeForPrice(p){
-  const usd  = Number(window?.CYCLA?.ORDER_USD ?? 5);
+  const usd  = Number(window?.CYCLA?.ORDER_USD ?? 3);
   const step = 0.000001;
   const raw  = usd / p;
   const sized = Math.floor(raw / step) * step;
@@ -230,47 +260,97 @@ function renderPLFromTotals(){
   const t = ledger.totals;
   const mode  = (window?.CYCLA?.FEE?.mode  || 'taker');
   const venue = (window?.CYCLA?.FEE?.venue || 'spot');
-  PL_BOX.textContent =
+
+  let text =
     `Buys: ${t.buys}   Sells: ${t.sells}\n` +
-    `Gross: $${fmtUSD(t.gross)}   Fees: $${fmtUSD(t.fees)}\n` +
-    `Net: $${fmtUSD(t.net)}  [${mode}/${venue}]`;
+    `Realized: $${fmtUSD(t.net)}   (Gross $${fmtUSD(t.gross)} • Fees $${fmtUSD(t.fees)})\n`;
+
+  const u = liveUnrealized();
+  if (Number.isFinite(u.uNet) && (ledger.open.size > 0)){
+    text += `Unrealized: $${fmtUSD(u.uNet)}   Open: ${ledger.open.size} pos`;
+  }
+
+  text += `\n[${mode}/${venue}]`;
+  PL_BOX.textContent = text;
 }
 
 // Accept a real leg from the chart relay
+// De-dupe real legs (5 min TTL)
+const _legSeen = new Map();
+function _legKey(d){ return `${d.symbol}|${d.side}|${d.time}|${+d.price}|${+d.qty}`; }
+function rememberLegOnce(d, ttlMs = 5*60*1000){
+  const now = Date.now();
+  for (const [k, until] of _legSeen) if (until <= now) _legSeen.delete(k);
+  const key = _legKey(d);
+  if (_legSeen.has(key)) return false;
+  _legSeen.set(key, now + ttlMs);
+  return true;
+}
+
+const lastPrice = new Map();
 function addLeg({ symbol, side, price, qty, time }){
   const sym = String(symbol||'').toUpperCase().replace(/[\/\-\s]/g,'');
-  if (!sym || !price) return;
-  const q   = Number(qty || sizeForPrice(price));
+  const q   = Number(qty || sizeForPrice(Number(price)));
   const px  = Number(price);
-  const fr  = feeRate();
-  const usd = q * px;
-  const fee = usd * fr;
+  if (!sym || !Number.isFinite(px) || !Number.isFinite(q) || q <= 0) return;
+  if (!rememberLegOnce({symbol:sym, side, price:px, qty:q, time})) return;
 
   if (side === 'BUY'){
-    ledger.open.set(sym, { price:px, qty:q, time });
+    // ✅ combine multiple buys: new average price + bigger size
+    const o = ledger.open.get(sym);
+    if (o){
+      const newQty = +(o.qty + q).toFixed(6);
+      const newPx  = +((o.qty * o.price + q * px) / newQty).toFixed(8);
+      ledger.open.set(sym, { price:newPx, qty:newQty, time: o.time ?? time });
+    }else{
+      ledger.open.set(sym, { price:px, qty:q, time });
+    }
     ledger.totals.buys += 1;
-  } else if (side === 'SELL'){
+    // optional: show unrealized P/L immediately
+    lastPrice.set(sym, px);
+  }
+  else if (side === 'SELL'){
+    // your existing partial-close logic
     ledger.totals.sells += 1;
     const o = ledger.open.get(sym);
     if (o){
-      // close round-trip
-      const buyUsd  = o.qty * o.price;
-      const sellUsd = q * px; // assume we close with same qty (limit size logic)
-      const fees = buyUsd * fr + sellUsd * fr;
-      const gross = sellUsd - buyUsd;
-      const net   = gross - fees;
+      const fr = feeRate();
+      const closeQty = Math.min(o.qty, q);
+      const buyUsd   = closeQty * o.price;
+      const sellUsd  = closeQty * px;
+      const fees     = buyUsd * fr + sellUsd * fr;
+      const gross    = sellUsd - buyUsd;
+      const net      = gross - fees;
 
-      ledger.closed.push({ symbol:sym, buy:o, sell:{ price:px, qty:q, time }, gross, fees, net });
+      ledger.closed.push({ symbol:sym, buy:{...o, qty:closeQty}, sell:{ price:px, qty:closeQty, time }, gross, fees, net });
       ledger.totals.gross += gross;
       ledger.totals.fees  += fees;
       ledger.totals.net   += net;
       if (net >= 0) ledger.totals.wins++; else ledger.totals.losses++;
-      ledger.open.delete(sym);
-    } else {
-      // no open long; ignore or store as dangling close
+
+      // reduce remaining open qty
+      o.qty = +(o.qty - closeQty).toFixed(6);
+      if (o.qty <= 1e-12) ledger.open.delete(sym);
+      else ledger.open.set(sym, o);
     }
   }
+
   renderPLFromTotals();
+}
+
+// Live price cache (per symbol)
+function liveUnrealized(){
+  const fr = feeRate();
+  let uGross = 0, uFees = 0;
+  for (const [sym, o] of ledger.open){
+    const p = lastPrice.get(sym);
+    if (!Number.isFinite(p)) continue;
+    const buyUsd   = o.qty * o.price;
+    const closeUsd = o.qty * p;
+    uGross += (closeUsd - buyUsd);
+    uFees  += buyUsd * fr + closeUsd * fr;  // rough fees estimate
+  }
+  return { uGross, uFees, uNet: uGross - uFees };
 }
 
 // Marker fallback (only if you haven’t traded in this session)
@@ -313,6 +393,15 @@ function computeFromSnapshot(payload){
 }
 
 // Wire up events (single set — remove any duplicates below your old block)
+window.CYCLA.bus.addEventListener('cycla:price:tick', (e)=>{
+  const d = e.detail || {};
+  const sym = String(d.symbol||'').toUpperCase().replace(/[\/\-\s]/g,'');
+  const px  = Number(d.price);
+  if (!sym || !Number.isFinite(px)) return;
+  lastPrice.set(sym, px);
+  if (ledger.open.has(sym)) renderPLFromTotals();
+});
+
 window.CYCLA.bus.addEventListener('cycla:chart:markers', (e)=> computeFromSnapshot(e.detail || {}));
 window.CYCLA.bus.addEventListener('cycla:pl:leg',        (e)=> addLeg(e.detail || {}));
 window.CYCLA.bus.addEventListener('cycla:order:queued',  (e)=> addLeg(e.detail || {}));
