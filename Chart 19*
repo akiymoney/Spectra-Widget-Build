@@ -962,45 +962,69 @@ function priceAtTime(t){
 }
 
 // Emit-level de-dupe (independent from order de-dupe)
-const __evtSeen = new Map(); // key -> expiry ts
-function __evtKey(symbol, tf, time, side){ return `${symbol}|${tf}|${time}|${side}`; }
-function __rememberOnce(key, ttlMs = 15*60*1000){
+// ── Place these helpers ONCE, just above emitTradeSignals ──
+const __evtSeen = new Map(); // key -> expiry timestamp (ms)
+
+function __evtKey(symbol, tf, time, side) {
+  return `${symbol}|${String(tf || '').toUpperCase()}|${time}|${side}`;
+}
+
+function __rememberOnce(key, ttlMs = 15 * 60 * 1000) { // 15 min TTL
   const now = Date.now();
-  for (const [k, until] of __evtSeen) if (until <= now) __evtSeen.delete(k);
+  // GC expired entries
+  for (const [k, until] of __evtSeen) {
+    if (until <= now) __evtSeen.delete(k);
+  }
   if (__evtSeen.has(key)) return false;
   __evtSeen.set(key, now + ttlMs);
   return true;
 }
 
-// Emit 'cycla:signal' for NEW markers only (delta vs previous)
-function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers){
-  try{
-    const symbol = String(symbolUI||'').toUpperCase().replace(/[\/\-\s]/g,'');
-    const prevSet = new Set((prevMarkers||[]).map(m => `${m.time}|${m.text||m.position||''}`));
+// ── FULL PATCHED FUNCTION ──
+// Fires exactly once per NEW visible marker (bar-time, side)
+// Uses the bar’s price at that time; never emits on initial load (caller passes prevMarkers correctly)
+function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers) {
+  try {
+    const symbol = String(symbolUI || '').toUpperCase().replace(/[\/\-\s]/g, '');
+    if (!symbol || !tf) return;
 
-    for (const m of (nextMarkers||[])) {
-      // 1) only if this marker is NEW vs previous draw
-      const sigKey = `${m.time}|${m.text||m.position||''}`;
-      if (prevSet.has(sigKey)) continue;
+    // Build a quick "seen on previous draw" set to diff markers
+    const prevSet = new Set(
+      (prevMarkers || []).map(m => `${m?.time}|${m?.text || m?.position || ''}`)
+    );
 
-      // 2) resolve price at that bar-time (prefer embedded marker price)
+    for (const m of (nextMarkers || [])) {
+      if (!m || typeof m.time !== 'number') continue;
+
+      // (1) only if this specific marker is NEW vs last draw
+      const markerKey = `${m.time}|${m.text || m.position || ''}`;
+      if (prevSet.has(markerKey)) continue;
+
+      // (2) resolve side robustly (text wins; otherwise infer from position)
+      let side = String(m?.text || '').toUpperCase();
+      if (side !== 'BUY' && side !== 'SELL') {
+        if (m.position === 'belowBar') side = 'BUY';
+        else if (m.position === 'aboveBar') side = 'SELL';
+        else continue; // unknown marker → ignore
+      }
+
+      // (3) get price at that bar-time (prefer embedded, else lookup)
       const px = Number(m?.price ?? NaN);
       const price = Number.isFinite(px) ? px : priceAtTime(m.time);
       if (!Number.isFinite(price) || price <= 0) continue;
 
-      // 3) compute side and do an emit-level once-per-(symbol,tf,time,side)
-      const side = String(m?.text||'').toUpperCase() || (m.position==='belowBar' ? 'BUY' : 'SELL');
-      const onceKey = __evtKey(symbol, String(tf||'').toUpperCase(), m.time, side);
-      if (!__rememberOnce(onceKey)) continue; // already emitted
+      // (4) emit-level once-per-(symbol, tf, time, side)
+      const onceKey = __evtKey(symbol, tf, m.time, side);
+      if (!__rememberOnce(onceKey)) continue; // already emitted for this marker
 
-const side = String(m?.text||'').toUpperCase() || (m.position==='belowBar' ? 'BUY' : 'SELL');
-if (side !== 'BUY' && side !== 'SELL') continue; // guard
-
+      // (5) dispatch the trading signal
       window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:signal', {
         detail: { symbol, tf, side, time: m.time, price }
       }));
     }
-  } catch (e) { console.warn('emitTradeSignals failed:', e); }
+  } catch (e) {
+    console.warn('emitTradeSignals failed:', e);
+  }
 }
 
   function updateCrosshairFrom(src, param){
