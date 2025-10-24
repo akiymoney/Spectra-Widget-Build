@@ -1,0 +1,286 @@
+<!-- CYCLA • Trades Panel (233x523) • 1:1 + P/L HUD patch -->
+<div id="cycla-trades-center" style="--block-h:523px;">
+  <div id="cycla-trades-widget" role="region" aria-label="CYCLA Trades Panel">
+    <div class="tp-label" aria-hidden="true"></div>
+
+    <!-- Top HUD: P/L (233x89) -->
+    <section class="tp-hud tp-pl" aria-label="P/L">
+      <header class="tp-hdr">P/L</header>
+      <div class="tp-pl-body" id="tp-pl-body">—</div>
+    </section>
+
+    <!-- Second HUD: Watchlist (233x144) -->
+    <section class="tp-hud tp-watch" aria-label="Watchlist">
+      <header class="tp-hdr">Watchlist</header>
+      <div class="tp-list" id="tp-watch" role="listbox" aria-label="Watchlist symbols"></div>
+    </section>
+
+    <!-- Third HUD: Active Trades (233x144) -->
+    <section class="tp-hud tp-active" aria-label="Active Trades">
+      <header class="tp-hdr">Active Trades</header>
+      <div class="tp-list" id="tp-active" role="listbox" aria-label="Active trades symbols"></div>
+    </section>
+
+    <!-- Bottom button row -->
+    <div class="tp-row">
+      <button id="tp-auto" class="tp-btn" type="button" title="Move all Watchlist → Active">AUTO</button>
+      <button id="tp-ks" class="tp-btn tp-btn--danger" type="button" title="Clear Active Trades">KS</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  #cycla-trades-center *{ box-sizing:border-box; }
+  #cycla-trades-center{
+    width:100%; height:var(--block-h,523px);
+    display:flex; align-items:center; justify-content:center; margin:0 auto; padding:0;
+  }
+  /* Root 233×523 */
+  #cycla-trades-widget{
+    position:relative; width:233px; height:523px; margin:0 auto;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
+    font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220; overflow:hidden; padding:6px;
+  }
+  .tp-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
+
+  .tp-hud{
+    width:221px; border:1px solid rgba(10,20,40,.12); border-radius:12px;
+    background:#fff; margin:0 auto 6px auto; overflow:hidden;
+  }
+  .tp-pl{ height:89px; display:flex; flex-direction:column; }
+  .tp-watch, .tp-active{ height:144px; display:flex; flex-direction:column; }
+
+  .tp-hdr{
+    height:28px; display:flex; align-items:center; padding:0 8px;
+    font-weight:800; color:#33415e; background:rgba(255,255,255,.78);
+    border-bottom:1px solid rgba(10,20,40,.10);
+  }
+  .tp-pl-body{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:16px; color:#1b2a4a; white-space:pre-line; text-align:center;
+  }
+  .tp-list{
+    flex:1; padding:6px; overflow:auto;
+    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
+  }
+
+  /* Rows (symbols) */
+  .tp-row-item{
+    display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;
+    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
+    border:1px solid rgba(10,20,40,.12); cursor:pointer; user-select:none;
+  }
+  .tp-row-item:hover{ background:#eef7ff; }
+  .tp-sym{ font-weight:800; color:#1b2a4a; }
+  .tp-mini{ display:flex; gap:4px; }
+  .tp-chip{
+    border:1px solid rgba(10,20,40,.12); border-radius:999px; padding:2px 6px;
+    font-weight:800; font-size:10px; background:#f8fafc; color:#33415e;
+  }
+
+  /* Bottom buttons (exact sizes) */
+  .tp-row{
+    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; justify-content:flex-start; align-items:center;
+  }
+  .tp-btn{
+    width:55px; height:34px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95); box-shadow:0 13px 21px rgba(8,16,40,.18);
+    color:#1b2a4a; font-weight:800; cursor:pointer;
+  }
+  .tp-btn--danger{
+    border-color:#dc2626; color:#7a0a0a;
+  }
+</style>
+
+<script>
+(()=>{
+  const ROOT = document.getElementById('cycla-trades-widget');
+
+  // Global bus (same one used by Screener/Chart)
+  window.CYCLA = window.CYCLA || {};
+  window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+
+// NEW: frozen TF per symbol (set when added to Watchlist)
+(window.CYCLA.tfBySymbol ||= Object.create(null));
+
+  // ✅ If the chart exposes RELAY, grab it here (optional, for killswitch)
+  const RELAY = window?.CYCLA?.RELAY;
+
+  // Elements
+  const WATCH  = ROOT.querySelector('#tp-watch');
+  const ACTIVE = ROOT.querySelector('#tp-active');
+  const BTN_AUTO = ROOT.querySelector('#tp-auto');
+  const BTN_KS   = ROOT.querySelector('#tp-ks');
+  const PL_BOX   = ROOT.querySelector('#tp-pl-body');
+
+  // Local state (symbols as UI-formatted strings like BTCUSD, AAPL, EURUSD)
+  const watchSet  = new Set();
+  const activeSet = new Set();
+
+
+  // ───────────────────────── Helpers ─────────────────────────
+  function uiNormalize(sym){
+return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
+  }
+  function makeRow(sym, where){
+    const row = document.createElement('div');
+    row.className = 'tp-row-item';
+    row.setAttribute('role','option');
+    row.dataset.sym = sym;
+
+    const left = document.createElement('div');
+    left.className = 'tp-sym';
+    left.textContent = sym;
+
+    const right = document.createElement('div');
+    right.className = 'tp-mini';
+    const chip = document.createElement('div');
+    chip.className = 'tp-chip';
+    chip.textContent = where;
+    right.appendChild(chip);
+
+    row.appendChild(left); row.appendChild(right);
+
+    // Clicking any row loads that symbol on the chart (same as Screener)
+    row.addEventListener('click', ()=>{
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
+    });
+
+    return row;
+  }
+  function renderList(container, set, where){
+    container.innerHTML = '';
+    for(const sym of set){
+      container.appendChild(makeRow(sym, where));
+    }
+  }
+
+  // ✅ Clear lists when the chart tells us to (e.g., kill switch from chart)
+  window.CYCLA.bus.addEventListener('cycla:trades:clear', ()=>{
+    activeSet.clear();
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // ✅ AUTO should *also* start auto-trading, not just move symbols
+  BTN_AUTO.addEventListener('click', ()=>{
+    // start engine
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
+   window.CYCLA.ORDER_USD = 5;
+
+    // keep your current behavior (move watch → active)
+    if (watchSet.size === 0) return;
+    for (const s of watchSet) activeSet.add(s);
+    watchSet.clear();
+    renderList(WATCH, watchSet, 'Watch');
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // ✅ KS should stop engine, clear UI, and (if we know RELAY) poke the backend
+  BTN_KS.addEventListener('click', async ()=>{
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
+
+    if (RELAY) { try { await fetch(`${RELAY}/killswitch`, { method:'POST' }); } catch(_){} }
+
+    activeSet.clear();
+    renderList(ACTIVE, activeSet, 'Active');
+  });
+
+  // ───────────────────────── P/L HUD patch (ONLY CHANGE) ─────────────────────────
+  const fmtUSD = (n)=> {
+    const v = Number(n || 0);
+    return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  };
+  function renderPL({ bCount=0, bSum=0, sCount=0, sSum=0 }){
+    const pnl = sSum - bSum;
+    PL_BOX.textContent =
+      `Buys: ${bCount} ($${fmtUSD(bSum)})\n` +
+      `Sells: ${sCount} ($${fmtUSD(sSum)})\n` +
+      `P/L: $${fmtUSD(pnl)}`;
+  }
+
+  function computeFromSnapshot(payload){
+    // payload: { markers, visible:{from,to}, priceByTime:{[time]:price} }
+    if(!payload || !payload.markers || !payload.visible || !payload.priceByTime){
+      return;
+    }
+    const { from, to } = payload.visible || {};
+    const markers = Array.isArray(payload.markers) ? payload.markers : [];
+    const priceByTime = payload.priceByTime || {};
+
+    let bCount=0, sCount=0, bSum=0, sSum=0;
+
+    for(const m of markers){
+      const t = (m && typeof m.time === 'number') ? m.time : null;
+      if(t == null || t < from || t > to) continue;
+
+      // Accept both "BUY"/"SELL" or position-based hints; prefer text.
+      const kind = (String(m.text || '').toUpperCase().includes('BUY'))  ? 'BUY'
+                 : (String(m.text || '').toUpperCase().includes('SELL')) ? 'SELL'
+                 : (m.position === 'belowBar' ? 'BUY'
+                   : m.position === 'aboveBar' ? 'SELL' : null);
+
+      if(!kind) continue;
+
+      const px = Number(priceByTime[t] ?? NaN);
+      if(!Number.isFinite(px)) continue;
+
+      if(kind === 'BUY'){ bCount++; bSum += px; }
+      if(kind === 'SELL'){ sCount++; sSum += px; }
+    }
+
+    renderPL({ bCount, bSum, sCount, sSum });
+  }
+
+  // Primary: compute whenever the chart publishes a fresh markers snapshot or range change
+  window.CYCLA.bus.addEventListener('cycla:chart:markers', (e)=>{
+    computeFromSnapshot(e.detail || {});
+  });
+
+  // Fallback: allow direct push with explicit buys/sells arrays
+  // e.g. { buys:[{time,price},...], sells:[{time,price},...] }
+  window.CYCLA.bus.addEventListener('cycla:pl:push', (e)=>{
+    const d = e.detail || {};
+    const buys  = Array.isArray(d.buys)  ? d.buys  : [];
+    const sells = Array.isArray(d.sells) ? d.sells : [];
+    const bCount = buys.length;
+    const sCount = sells.length;
+    const bSum = buys.reduce((a,x)=> a + (Number(x.price)||0), 0);
+    const sSum = sells.reduce((a,x)=> a + (Number(x.price)||0), 0);
+    renderPL({ bCount, bSum, sCount, sSum });
+  });
+
+  // Initialize HUD text
+  renderPL({ bCount:0, bSum:0, sCount:0, sSum:0 });
+
+  // ───────────────────────── Existing watchlist/active logic (unchanged) ─────────────────────────
+window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+  const d   = e.detail || {};
+  const sym = uiNormalize(d.symbol || '');
+  if(!sym) return;
+  // freeze TF at add-time (case-insensitive)
+  if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
+  if (activeSet.has(sym)) return;   // already active → ignore
+  if (!watchSet.has(sym)) watchSet.add(sym);
+  renderList(WATCH, watchSet, 'Watch');
+});
+
+window.CYCLA.bus.addEventListener('cycla:trades:add', (e)=>{
+  const d   = e.detail || {};
+  const sym = uiNormalize(d.symbol || '');
+  if(!sym) return;
+  if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
+  if(activeSet.has(sym)) return;
+  watchSet.add(sym);
+  renderList(WATCH, watchSet, 'Watch');
+});
+
+  // Initial paints
+  renderList(WATCH, watchSet, 'Watch');
+  renderList(ACTIVE, activeSet, 'Active');
+})();
+</script>
