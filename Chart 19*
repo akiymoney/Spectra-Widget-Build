@@ -224,6 +224,8 @@ window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
 const RELAY = "https://spectra-trade-bot.onrender.com";
 window.CYCLA.RELAY = RELAY; // ✅ expose to other widgets
 
+window.CYCLA.ORDER_USD = 5;   // set your default (e.g., 10, 25, 50)
+
 // ---- /order fetch logger (once) --------------------------------------------
 if (!window.__CYCLA_FETCH_LOGGER__) {
   window.__CYCLA_FETCH_LOGGER__ = true;
