@@ -266,52 +266,134 @@ let current = { buf: { price: [] } };
 let lastMarkers = []; // <-- keep this single, early declaration
 
 function toProductId(sym){
-  const s = String(sym||'').toUpperCase().replace(/\s+/g,'');
-  if (s.includes('-')) return s;
-  if (s.includes('/')) return s.replace('/', '-');
-  if (/^[A-Z0-9]+USD$/.test(s)) return s.replace(/USD$/, '-USD');
-  // Fallback: insert hyphen before last 3 chars (assumes USD quote)
-  return s.slice(0, -3) + '-' + s.slice(-3);
+  const s = String(sym||'').toUpperCase().replace(/\s+/g,'').replace(/\//g,'-');
+  if (s.includes('-')) return s; // already hyphenated
+  const QUOTES = ['USDC','USD','EUR','GBP']; // longest first so USDC beats USD
+  for (const q of QUOTES){
+    if (s.endsWith(q) && s.length > q.length){
+      return s.slice(0, -q.length) + '-' + q;
+    }
+  }
+  return s; // fallback (will be rejected by isCoinbaseProduct)
 }
 
 function isCoinbaseProduct(id){
-  // Allow only products Coinbase actually lists with these quotes.
-  // e.g., BTC-USD, ETH-USDC, AAVE-EUR, etc.
-  return /^[A-Z0-9]+-(USD|USDC|EUR|GBP)$/.test(String(id||'').toUpperCase());
+  const m = String(id||'').toUpperCase().match(/^([A-Z0-9]+)-(USD|USDC|EUR|GBP)$/);
+  if (!m) return false;
+  const base = m[1];
+  return /[A-Z]/.test(base); // must contain at least one letter
 }
 
 window.CYCLA.bus.addEventListener("cycla:auto:start", () => AUTO = true);
 window.CYCLA.bus.addEventListener("cycla:auto:stop",  () => AUTO = false);
 
-window.CYCLA.bus.addEventListener("cycla:signal", async (e) => {
+// ─── Order de-dupe + queue (place ABOVE the listener) ───
+const ORDER_TTL_MS    = 70_000;   // ignore repeat (symbol|tf|time|side) for 70s
+const ORDER_SPACING_MS=   400;    // min spacing between POSTs
+const MAX_RETRIES     =     6;    // retry 429s with backoff
+
+const _seen = new Map();          // key -> firstSeen
+function _gcSeen(){
+  const now = Date.now();
+  for (const [k, t] of _seen) if (now - t > ORDER_TTL_MS) _seen.delete(k);
+}
+function _dedupKey({symbol, tf, time, side}){ return `${symbol}|${tf}|${time}|${side}`; }
+function _markIfNew(key){
+  _gcSeen();
+  if (_seen.has(key)) return false;
+  _seen.set(key, Date.now());
+  return true;
+}
+
+const _q = [];
+let _draining = false;
+let _lastSentAt = 0;
+
+async function _drainQueue(){
+  if (_draining) return;
+  _draining = true;
+  while (_q.length){
+    const job = _q.shift();
+
+    // client-side spacing
+    const wait = Math.max(0, ORDER_SPACING_MS - (Date.now() - _lastSentAt));
+    if (wait) await new Promise(r => setTimeout(r, wait));
+    _lastSentAt = Date.now();
+
+    // POST with 429 backoff
+    let attempt = 0, backoff = 500;
+    for (;;){
+      const res = await fetch(`${RELAY}/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(job.body)
+      });
+
+      if (res.ok) break;                       // success
+      if (res.status !== 429 || attempt >= MAX_RETRIES) break;
+
+      await new Promise(r => setTimeout(r, backoff + Math.floor(Math.random()*250)));
+      backoff = Math.min(backoff * 2, 8000);
+      attempt++;
+    }
+  }
+  _draining = false;
+}
+
+function decimals(x){ const s=String(x); const i=s.indexOf('.'); return i<0?0:s.length-i-1; }
+function roundToStep(v, step, mode='round'){
+  const n = Math.max(0, decimals(step));
+  const k = v / step;
+  const r = mode === 'floor' ? Math.floor(k) : Math.round(k);
+  return +(r * step).toFixed(n);
+}
+
+// Coarse defaults that work well for Coinbase spot if you don't fetch per-product meta.
+// USD/USDC/EUR/GBP: 0.01 for prices >= 1; 0.0001 for sub-dollar alts.
+function priceStepFor(quote, p){
+  const q = String(quote||'').toUpperCase();
+  if (q==='USD' || q==='USDC' || q==='EUR' || q==='GBP'){
+    return p < 1 ? 0.0001 : 0.01;
+  }
+  return 0.00000001; // fallback for crypto quotes
+}
+
+// Conservative base size step (many spot pairs allow 1e-6 or finer).
+const BASE_SIZE_STEP = 0.000001;
+
+window.CYCLA.bus.addEventListener("cycla:signal", (e) => {
   if (!AUTO) return;
   const { symbol, side, tf, time, price } = e.detail;
 
   const product_id = toProductId(symbol);
-  // ⬇️ INSERT THIS BLOCK right after computing product_id,
-  //     BEFORE you compute usd/size and BEFORE the fetch() call.
-  if (!isCoinbaseProduct(product_id)) {
-    console.warn('Skipping non-Coinbase product:', product_id);
-    return;
-  }
+  if (!isCoinbaseProduct(product_id)) { console.warn('Skip non-CB product', product_id); return; }
+  if (!Number.isFinite(price) || price <= 0) { console.warn('Bad price'); return; }
 
-  const usd  = Number(window?.CYCLA?.ORDER_USD ?? 5);
-  if (!Number.isFinite(price) || price <= 0) { console.warn('No signal price'); return; }
-  const size = +(usd / price).toFixed(6);
+  const [base, quote] = product_id.split('-');
 
-  await fetch(`${RELAY}/order`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  // ---- precision fixes ----
+  const pStep = priceStepFor(quote, price);
+  const usd   = Number(window?.CYCLA?.ORDER_USD ?? 5);
+  const rawSz = +(usd / price);
+  const priceRounded = roundToStep(price, pStep, 'round');      // fix "too many decimals"
+  const sizeRounded  = roundToStep(rawSz, BASE_SIZE_STEP, 'floor'); // floor size to step
+
+  const key = _dedupKey({ symbol, tf, time, side });
+  if (!_markIfNew(key)) return;
+
+  _q.push({
+    body: {
       product_id,
       side,
       type: "limit",
-      price,
-      size,
+      price: priceRounded,
+      size:  sizeRounded,
       seconds: 60,
       client_order_id: `${symbol}-${tf}-${time}-${side}`
-    })
+    }
   });
+
+  _drainQueue();
 });
 
 // Hook your buttons:
