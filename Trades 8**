@@ -9,22 +9,27 @@
 <div class="tp-pl-body" id="tp-pl-body" aria-live="polite" role="status">—</div>
     </section>
 
-    <!-- Second HUD: Watchlist (233x144) -->
-    <section class="tp-hud tp-watch" aria-label="Watchlist">
-      <header class="tp-hdr">Watchlist</header>
-      <div class="tp-list" id="tp-watch" role="listbox" aria-label="Watchlist symbols"></div>
-    </section>
+<!-- Second HUD: Watchlist (233x144) -->
+<section class="tp-hud tp-watch" aria-labelledby="hdr-watch">
+  <header class="tp-hdr" id="hdr-watch">Watchlist</header>
+  <div class="tp-list" id="tp-watch" role="list" aria-labelledby="hdr-watch"></div>
+</section>
 
-    <!-- Third HUD: Active Trades (233x144) -->
-    <section class="tp-hud tp-active" aria-label="Active Trades">
-      <header class="tp-hdr">Active Trades</header>
-      <div class="tp-list" id="tp-active" role="listbox" aria-label="Active trades symbols"></div>
-    </section>
+<!-- Third HUD: Active Trades (233x144) -->
+<section class="tp-hud tp-active" aria-labelledby="hdr-active">
+  <header class="tp-hdr" id="hdr-active">Active Trades</header>
+  <div class="tp-list" id="tp-active" role="list" aria-labelledby="hdr-active"></div>
+</section>
 
     <!-- Bottom button row -->
     <div class="tp-row">
-      <button id="tp-auto" class="tp-btn" type="button" title="Move all Watchlist → Active">AUTO</button>
-      <button id="tp-ks" class="tp-btn tp-btn--danger" type="button" title="Clear Active Trades">KS</button>
+<button id="tp-auto" class="tp-btn" type="button"
+        aria-controls="tp-watch tp-active"
+        aria-pressed="false"
+        title="Move all Watchlist → Active">AUTO</button>
+<button id="tp-ks" class="tp-btn tp-btn--danger" type="button"
+        aria-controls="tp-active"
+        title="Clear Active Trades">KS</button>
     </div>
   </div>
 </div>
@@ -129,9 +134,6 @@ window.CYCLA.FEE ??= {
   const ACTIVE = ROOT.querySelector('#tp-active');
   const BTN_AUTO = ROOT.querySelector('#tp-auto');
 
-// ADD: expose pressed state for a11y
-BTN_AUTO.setAttribute('aria-pressed', 'false');
-
   const BTN_KS   = ROOT.querySelector('#tp-ks');
   const PL_BOX   = ROOT.querySelector('#tp-pl-body');
 
@@ -148,7 +150,7 @@ return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
 function makeRow(sym, where){
   const row = document.createElement('div');
   row.className = 'tp-row-item';
-  row.setAttribute('role','option');
+row.setAttribute('role','listitem');
   row.dataset.sym = sym;
 
   // ADD: make focusable with keyboard
