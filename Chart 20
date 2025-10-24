@@ -224,7 +224,7 @@ window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
 const RELAY = "https://spectra-trade-bot.onrender.com";
 window.CYCLA.RELAY = RELAY; // ✅ expose to other widgets
 
-window.CYCLA.ORDER_USD = 5;   // set your default (e.g., 10, 25, 50)
+window.CYCLA.ORDER_USD = 3;   // default USD/ trade
 
 // ---- /order fetch logger (once) --------------------------------------------
 if (!window.__CYCLA_FETCH_LOGGER__) {
@@ -269,6 +269,15 @@ if (!window.__CYCLA_FETCH_LOGGER__) {
 // ---------------------------------------------------------------------------
 
 let AUTO = false;
+
+let _loading = false;
+async function safeLoad(sym, tf){
+  if (_loading) return;
+  _loading = true;
+  try { await load(sym, tf); }
+  finally { _loading = false; }
+}
+
 let current = { buf: { price: [] } };
 let lastMarkers = []; // <-- keep this single, early declaration
 
@@ -403,11 +412,11 @@ window.CYCLA.bus.addEventListener("cycla:signal", (e) => {
     return;
   }
 
-  const [base, quote] = product_id.split("-");
+const [, quote] = product_id.split('-');
 
   // ---- precision fixes ----
   const pStep = priceStepFor(quote, price);
-  const usd   = Number(window?.CYCLA?.ORDER_USD ?? 5);
+  const usd   = Number(window?.CYCLA?.ORDER_USD ?? 3);
   const rawSz = +(usd / price);
 
   // PATCH: floor the limit price to the nearest valid tick; floor size to base step
@@ -447,50 +456,30 @@ const priceRounded = side === 'SELL'
     }
   });
 
-// let other widgets know what we actually sent
-window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
-  detail: {
-    symbol: product_id.replace('-', ''), // e.g., BTCUSD
-    tf,
-    side,
-    time,
-    price: priceRounded,
-    size: sizeRounded,  // base units (e.g., BTC)
-    usd                   // notional per trade we targeted
-  }
-}));
-
-// Notify trades panel with the leg we just submitted
+// ---- tell Trades panel about this real leg (single fire) ----
 try {
-  const uiSym = product_id.replace('-', ''); // e.g., BTC-USD -> BTCUSD
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:pl:leg', {
+  // Use UI symbol (BTC-USD → BTCUSD). Trades widget will normalize anyway.
+  const uiSym = product_id.replace('-', '');
+
+  // One canonical event your Trades widget listens to
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
     detail: {
-      symbol: uiSym,
-      side,
-      price: priceRounded,
-      qty: sizeRounded,
-      time,
-      tf
+      symbol: uiSym,       // e.g., BTCUSD
+      tf,                  // e.g., '1m'
+      side,                // 'BUY' | 'SELL'
+      time,                // bar time (sec)
+      price: priceRounded, // limit price actually sent
+      qty:   sizeRounded,  // base size actually sent
+      usd                    // notional target you used to size (optional)
     }
   }));
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
-    detail: { symbol: uiSym, side, price: priceRounded, qty: sizeRounded, time, tf }
-  }));
-} catch(_){}
 
-  _drainQueue();
-});
+  // 🔒 Ensure TF is frozen for this symbol as soon as we trade (used by AUTO gating)
+  (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
 
-// Hook your buttons:
-document.querySelector("#autoBtn")?.addEventListener("click", ()=>{
-  window.CYCLA.bus.dispatchEvent(new CustomEvent("cycla:auto:start"));
-});
+} catch {}
 
-document.querySelector("#ksBtn")?.addEventListener("click", async ()=>{
-  AUTO = false;
-  await fetch(`${RELAY}/killswitch`, { method:"POST" });
-  // also clear your Watchlist/Active HUDs locally
-  window.CYCLA.bus.dispatchEvent(new CustomEvent("cycla:trades:clear"));
+_drainQueue();
 });
 
 // Surface missing-key to Screener's ECU
@@ -506,7 +495,7 @@ window.CYCLA.bus.addEventListener('cycla:load', (e) => {
   if (!symbol) return;
   const tf = window.CYCLA.currentTF || '1m';
   try {
-    load(symbol, tf);
+    safeLoad(symbol, tf);  // ← use safeLoad here
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', {
       detail: { level: 'ok', msg: `Chart loading ${symbol}…` }
     }));
@@ -538,18 +527,24 @@ const DEFAULT_SYMBOL = 'BTCUSD';
   const W_BTN   = ROOT.querySelector('.cp-w');
 
 // Chart: send symbol + TF to Trades widget
-W_BTN.addEventListener('click', ()=>{
-  try{
-    const uiSym =
-      (INFO?.sym?.textContent ? INFO.sym.textContent : current?.symbol || '')
-      .toString().trim().toUpperCase();
-    if(!uiSym) return;
-    const tf = (window.CYCLA?.currentTF || current?.tf || '1m'); // freeze TF
-    (window.CYCLA ||= {}).bus ||= new EventTarget();
+W_BTN.addEventListener('click', () => {
+  try {
+    // UI symbol from the chart header (fallback to current.symbol)
+    const uiSym = (
+      INFO?.sym?.textContent || current?.symbol || ''
+    ).toString().trim().toUpperCase().replace(/[\/\-\s]/g, '');
+
+    if (!uiSym) return;
+
+    // Freeze the TF currently shown on the chart
+    const tf = (window.CYCLA?.currentTF || current?.tf || '1m');
+    (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;   // 🔒 freeze per symbol
+
+    // Tell the rest of the app this symbol+TF was “watched”
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:watchlist:add', {
       detail: { symbol: uiSym, tf }
     }));
-  }catch(_){}
+  } catch {}
 });
 
   const TIP     = ROOT.querySelector('#cp-tip');
@@ -920,18 +915,12 @@ const series = chart.addCandlestickSeries({
 
 // ─── CYCLA Trades P/L HUD: recompute on pan/zoom ───
 chart.timeScale().subscribeVisibleTimeRangeChange((vis) => {
-  try {
-
-const priceData = (current?.buf?.price) || [];
-    const priceByTime = Object.fromEntries(priceData.map(b => [b.time, b.close]));
-
-    // If you cache lastMarkers (see steps below), pass it here; else [] is fine.
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:chart:markers', {
-      detail: { markers: lastMarkers || [], visible: vis, priceByTime }
-    }));
-  } catch (err) {
-    console.warn('CYCLA visible-range P/L sync failed:', err);
-  }
+  if (!vis) return;
+  const priceData = current?.buf?.price || [];
+  const priceByTime = Object.fromEntries(priceData.map(b => [b.time, b.close]));
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:chart:markers', {
+    detail: { markers: lastMarkers || [], visible: vis, priceByTime }
+  }));
 });
 
   // Oscillator chart (separate pane)
@@ -1281,6 +1270,10 @@ for (let i = 0; i < stepped.smftBars.length; i++) {
 
   // push to chart
   series.update(pb);
+window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:price:tick', {
+  detail: { symbol: INFO.sym.textContent.trim().toUpperCase(), time: pb.time, price: pb.close }
+}));
+
   oscSeries.update(ob);
   bandUpSeries.update(ub);
   bandDnSeries.update(db);
@@ -1356,33 +1349,46 @@ SEARCH.value = toUiSymbol(symbol);
 
   // Search: Enter to load
   SEARCH.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      const v = (SEARCH.value || '').trim();
-      if(v) load(v, current.tf);
-    }
-  });
+if (e.key === 'Enter'){
+  const v = (SEARCH.value || '').trim();
+  if (v) safeLoad(v, current.tf);   // ← was load(...)
+   }
+});
 
   // TF menu toggle + selection
   TF_BTN.addEventListener('click', ()=>{
     TF_MENU.classList.toggle('cp-dd--hidden');
   });
 
-  TF_MENU.addEventListener('mouseleave', ()=> TF_MENU.classList.add('cp-dd--hidden'));
-  document.addEventListener('click', (e)=>{
-    if(!TF_MENU.contains(e.target) && e.target !== TF_BTN){
-      TF_MENU.classList.add('cp-dd--hidden');
-    }
-  });
-  TF_MENU.querySelectorAll('button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const tf = btn.getAttribute('data-tf');
-      TF_MENU.classList.add('cp-dd--hidden');
-      load(current.symbol, tf);
-    });
-  });
+// Close the TF menu when clicking outside it
+document.addEventListener('click', (e) => {
+  if (!TF_MENU.contains(e.target) && e.target !== TF_BTN) {
+    TF_MENU.classList.add('cp-dd--hidden');
+  }
+});
 
-  // Bootstrap
-  load(DEFAULT_SYMBOL, '1m');
+  TF_MENU.addEventListener('mouseleave', ()=> TF_MENU.classList.add('cp-dd--hidden'));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && current.poll) {
+    clearInterval(current.poll);
+    current.poll = null;
+  } else if (!document.hidden) {
+    safeLoad(current.symbol, current.tf);
+  }
+});
+
+window.addEventListener('beforeunload', () => current.poll && clearInterval(current.poll));
+
+TF_MENU.querySelectorAll('button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const tf = btn.getAttribute('data-tf');
+    TF_MENU.classList.add('cp-dd--hidden');
+    safeLoad(current.symbol, tf);   // ← was load(...)
+  });
+});
+
+// Bootstrap (safer)
+safeLoad(DEFAULT_SYMBOL, '1m');
 
 })();
 </script>
