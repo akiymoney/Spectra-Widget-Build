@@ -336,8 +336,10 @@ let _lastSentAt = 0;
 async function _drainQueue(){
   if (_draining) return;
   _draining = true;
+
   while (_q.length){
     const job = _q.shift();
+    const symUI = job.uiSym; // e.g. "BTCUSD"
 
     // client-side spacing
     const wait = Math.max(0, ORDER_SPACING_MS - (Date.now() - _lastSentAt));
@@ -345,7 +347,10 @@ async function _drainQueue(){
     _lastSentAt = Date.now();
 
     // POST with 429 backoff
-    let attempt = 0, backoff = 500;
+    let attempt = 0;
+    let backoff = 500;
+    let success = false;
+
     for (;;){
       const res = await fetch(`${RELAY}/order`, {
         method: "POST",
@@ -353,14 +358,30 @@ async function _drainQueue(){
         body: JSON.stringify(job.body)
       });
 
-      if (res.ok) break;                       // success
-      if (res.status !== 429 || attempt >= MAX_RETRIES) break;
+      if (res.ok) {
+        success = true;
+        break;
+      }
+      if (res.status !== 429 || attempt >= MAX_RETRIES) {
+        success = false;
+        break;
+      }
 
+      // still rate-limited → stay "pending"
       await new Promise(r => setTimeout(r, backoff + Math.floor(Math.random()*250)));
       backoff = Math.min(backoff * 2, 8000);
       attempt++;
     }
+
+    // tell Trades HUD final status for this leg
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+      detail: {
+        symbol: symUI,
+        status: success ? 'ok' : 'fail'
+      }
+    }));
   }
+
   _draining = false;
 }
 
@@ -444,7 +465,12 @@ const priceRounded = side === 'SELL'
   const key = _dedupKey({ symbol, tf, time, side });
   if (!_markIfNew(key)) return;
 
+  // UI symbol like "BTCUSD", we already computed this above in your listener
+  const uiSym = product_id.replace('-', '');
+
+  // queue the job with uiSym so _drainQueue can report status later
   _q.push({
+    uiSym,
     body: {
       product_id,
       side,
@@ -456,30 +482,30 @@ const priceRounded = side === 'SELL'
     }
   });
 
-// ---- tell Trades panel about this real leg (single fire) ----
-try {
-  // Use UI symbol (BTC-USD → BTCUSD). Trades widget will normalize anyway.
-  const uiSym = product_id.replace('-', '');
-
-  // One canonical event your Trades widget listens to
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
-    detail: {
-      symbol: uiSym,       // e.g., BTCUSD
-      tf,                  // e.g., '1m'
-      side,                // 'BUY' | 'SELL'
-      time,                // bar time (sec)
-      price: priceRounded, // limit price actually sent
-      qty:   sizeRounded,  // base size actually sent
-      usd                    // notional target you used to size (optional)
-    }
+  // tell Trades HUD this symbol has an order pending
+  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+    detail: { symbol: uiSym, status: 'pending' }
   }));
 
-  // 🔒 Ensure TF is frozen for this symbol as soon as we trade (used by AUTO gating)
-  (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
+  // ---- tell Trades panel about this real leg (single fire) ----
+  try {
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
+      detail: {
+        symbol: uiSym,
+        tf,
+        side,
+        time,
+        price: priceRounded,
+        qty:   sizeRounded,
+        usd
+      }
+    }));
 
-} catch {}
+    // 🔒 freeze TF for this symbol
+    (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
+  } catch {}
 
-_drainQueue();
+  _drainQueue();
 });
 
 // Surface missing-key to Screener's ECU
@@ -586,6 +612,7 @@ const TF_SEC = {
   '1m': 60, '3m': 180, '5m': 300, '8m': 480, '13m': 780, '21m': 1260, '34m': 2040,
   '1H': 3600, '1D': 86400, '1M': 2592000 // ~30d
 };
+
 function tfSeconds(tf){ return TF_SEC[tf] || 60; }
 
 // ───────────────────────── Utilities ─────────────────────────
@@ -616,6 +643,36 @@ function normalizeSymbol(raw) {
   }
   // Equities like AAPL just pass through
   return s;
+}
+
+function feedFreshEnough(tf) {
+  // last bar time we have
+  const lastBarTimeSec = current?.buf?.price?.at?.(-1)?.time ?? 0;
+  if (!lastBarTimeSec) return false;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // how old is the data?
+  const ageSec = nowSec - lastBarTimeSec;
+
+  // how long is a bar for this TF?
+  const barSec = tfSeconds(tf); // e.g. 60 for '1m', 300 for '5m', etc.
+
+  // Allow up to 2 bar-lengths of wiggle.
+  // e.g. if we're on 1m TF and last candle is >120s old, call it stale.
+  const maxAge = barSec * 2;
+
+  const fresh = ageSec <= maxAge;
+
+  if (!fresh) {
+    console.debug('[AUTO] feed stale', {
+      tf,
+      ageSec,
+      lastBarLocal: new Date(lastBarTimeSec * 1000).toString()
+    });
+  }
+
+  return fresh;
 }
 
 // UI wants slashless (BTCUSD)
@@ -1007,42 +1064,67 @@ function __rememberOnce(key, ttlMs = 15 * 60 * 1000) { // 15 min TTL
 // Uses the bar’s price at that time; never emits on initial load (caller passes prevMarkers correctly)
 function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers) {
   try {
-    const symbol = String(symbolUI || '').toUpperCase().replace(/[\/\-\s]/g, '');
+    const symbol = String(symbolUI || '')
+      .toUpperCase()
+      .replace(/[\/\-\s]/g, '');
     if (!symbol || !tf) return;
 
-    // Build a quick "seen on previous draw" set to diff markers
+    // ⛔ NEW: refuse to emit trading signals if feed is stale.
+    // This prevents AUTO from trading symbols whose data froze hours ago.
+    if (!feedFreshEnough(tf)) {
+      console.debug('[AUTO] drop (stale feed)', { symbol, tf });
+      return;
+    }
+
+    // Build a quick set of the markers we *already* showed last frame,
+    // so we only react to markers that are truly "new this frame"
     const prevSet = new Set(
-      (prevMarkers || []).map(m => `${m?.time}|${m?.text || m?.position || ''}`)
+      (prevMarkers || []).map(
+        m => `${m?.time}|${m?.text || m?.position || ''}`
+      )
     );
 
     for (const m of (nextMarkers || [])) {
       if (!m || typeof m.time !== 'number') continue;
 
-      // (1) only if this specific marker is NEW vs last draw
+      // Only consider markers that are NEW vs. what we rendered before
       const markerKey = `${m.time}|${m.text || m.position || ''}`;
       if (prevSet.has(markerKey)) continue;
 
-      // (2) resolve side robustly (text wins; otherwise infer from position)
+      // Resolve BUY/SELL side:
+      // 1. Prefer explicit text ("BUY", "SELL")
+      // 2. Fall back to position (belowBar = BUY, aboveBar = SELL)
       let side = String(m?.text || '').toUpperCase();
       if (side !== 'BUY' && side !== 'SELL') {
         if (m.position === 'belowBar') side = 'BUY';
         else if (m.position === 'aboveBar') side = 'SELL';
-        else continue; // unknown marker → ignore
+        else continue; // can't classify, skip
       }
 
-      // (3) get price at that bar-time (prefer embedded, else lookup)
+      // Get price at that bar’s time. Prefer embedded marker price, then fallback
+      // to historical close lookup via priceAtTime().
       const px = Number(m?.price ?? NaN);
       const price = Number.isFinite(px) ? px : priceAtTime(m.time);
       if (!Number.isFinite(price) || price <= 0) continue;
 
-      // (4) emit-level once-per-(symbol, tf, time, side)
+      // Emit-level de-dupe: don't keep firing for the same (symbol, tf, time, side)
+      // over and over. We only want to send one signal per unique bar event.
       const onceKey = __evtKey(symbol, tf, m.time, side);
-      if (!__rememberOnce(onceKey)) continue; // already emitted for this marker
+      if (!__rememberOnce(onceKey)) continue;
 
-      // (5) dispatch the trading signal
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:signal', {
-        detail: { symbol, tf, side, time: m.time, price }
-      }));
+      // ✅ FIRE: send a structured "trade intent" to the rest of the app.
+      // The trades widget and the AUTO executor listen for this.
+      window.CYCLA.bus.dispatchEvent(
+        new CustomEvent('cycla:signal', {
+          detail: {
+            symbol,   // e.g. "COMPUSD"
+            tf,       // e.g. "1m"
+            side,     // "BUY" | "SELL"
+            time: m.time,
+            price     // numeric limit reference
+          }
+        })
+      );
     }
   } catch (e) {
     console.warn('emitTradeSignals failed:', e);
