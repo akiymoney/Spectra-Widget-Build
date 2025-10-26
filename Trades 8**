@@ -1,4 +1,4 @@
-<!-- CYCLA • Trades Panel (233x523) • 1:1 + P/L HUD patch -->
+<!-- CYCLA • Trades Panel (233x523) • LED status • P/L HUD • AUTO • Manual BUY/SELL -->
 <div id="cycla-trades-center" style="--block-h:523px;">
   <div id="cycla-trades-widget" role="region" aria-label="CYCLA Trades Panel">
     <div class="tp-label" aria-hidden="true"></div>
@@ -6,99 +6,325 @@
     <!-- Top HUD: P/L (233x89) -->
     <section class="tp-hud tp-pl" aria-label="P/L">
       <header class="tp-hdr">P/L</header>
-<div class="tp-pl-body" id="tp-pl-body" aria-live="polite" role="status">—</div>
+      <div class="tp-pl-body" id="tp-pl-body" aria-live="polite" role="status">—</div>
     </section>
 
-<!-- Second HUD: Watchlist (233x144) -->
-<section class="tp-hud tp-watch" aria-labelledby="hdr-watch">
-  <header class="tp-hdr" id="hdr-watch">Watchlist</header>
-  <div class="tp-list" id="tp-watch" role="list" aria-labelledby="hdr-watch"></div>
-</section>
+    <!-- Second HUD: Watchlist (233x144) -->
+    <section class="tp-hud tp-watch" aria-labelledby="hdr-watch">
+      <header class="tp-hdr" id="hdr-watch">Watchlist</header>
+      <div class="tp-list" id="tp-watch" role="list" aria-labelledby="hdr-watch"></div>
+    </section>
 
-<!-- Third HUD: Active Trades (233x144) -->
-<section class="tp-hud tp-active" aria-labelledby="hdr-active">
-  <header class="tp-hdr" id="hdr-active">Active Trades</header>
-  <div class="tp-list" id="tp-active" role="list" aria-labelledby="hdr-active"></div>
-</section>
+    <!-- Third HUD: Active Trades (233x144) -->
+    <section class="tp-hud tp-active" aria-labelledby="hdr-active">
+      <header class="tp-hdr" id="hdr-active">Active Trades</header>
+      <div class="tp-list" id="tp-active" role="list" aria-labelledby="hdr-active"></div>
+    </section>
 
-    <!-- Bottom button row -->
+    <!-- Bottom control cluster -->
     <div class="tp-row">
-<button id="tp-auto" class="tp-btn" type="button"
-        aria-controls="tp-watch tp-active"
-        aria-pressed="false"
-        title="Move all Watchlist → Active">AUTO</button>
-<button id="tp-ks" class="tp-btn tp-btn--danger" type="button"
-        aria-controls="tp-active"
-        title="Clear Active Trades">KS</button>
+      <!-- AUTO toggle -->
+      <button id="tp-auto-btn"
+              class="tp-btn tp-auto-off"
+              type="button"
+              aria-controls="tp-watch tp-active"
+              aria-pressed="false"
+              data-state="off"
+              title="AUTO trade on signal">
+        AUTO
+        <span class="tp-auto-led" aria-hidden="true"></span>
+      </button>
+
+      <!-- BUY button (manual limit-buy @ current price w/ 60s timeout) -->
+      <button id="tp-buy-btn"
+              class="tp-btn tp-btn--buy"
+              type="button"
+              title="Instant BUY (limit @ current price / best bid, cancel in 60s)">
+        BUY
+      </button>
+
+      <!-- SELL button (manual limit-sell @ current price, cancel in 60s) -->
+      <button id="tp-sell-btn"
+              class="tp-btn tp-btn--sell"
+              type="button"
+              title="Instant SELL (limit @ current price / best ask, cancel in 60s)">
+        SELL
+      </button>
+
+      <!-- KS button -->
+      <button id="tp-ks"
+              class="tp-btn tp-btn--danger tp-btn-ks"
+              type="button"
+              aria-controls="tp-active"
+              title="Killswitch / Clear Active Trades">
+        KS
+      </button>
     </div>
   </div>
 </div>
 
 <style>
-  #cycla-trades-center *{ box-sizing:border-box; }
-  #cycla-trades-center{
-    width:100%; height:var(--block-h,523px);
-    display:flex; align-items:center; justify-content:center; margin:0 auto; padding:0;
+  #cycla-trades-center *{
+    box-sizing:border-box;
   }
+  #cycla-trades-center{
+    width:100%;
+    height:var(--block-h,523px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 auto;
+    padding:0;
+  }
+
   /* Root 233×523 */
   #cycla-trades-widget{
-    position:relative; width:233px; height:523px; margin:0 auto;
-    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    position:relative;
+    width:233px;
+    height:523px;
+    margin:0 auto;
+    border-radius:12px;
+    border:1px solid rgba(10,20,40,.12);
     box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
     background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
     font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:#0b1220; overflow:hidden; padding:6px;
+    color:#0b1220;
+    overflow:hidden;
+    padding:6px;
   }
-  .tp-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
+
+  .tp-label{
+    position:absolute;
+    top:6px;
+    left:8px;
+    font-weight:700;
+    font-size:11px;
+    color:#3b4a6b;
+    opacity:.55;
+    pointer-events:none;
+  }
 
   .tp-hud{
-    width:221px; border:1px solid rgba(10,20,40,.12); border-radius:12px;
-    background:#fff; margin:0 auto 6px auto; overflow:hidden;
+    width:221px;
+    border:1px solid rgba(10,20,40,.12);
+    border-radius:12px;
+    background:#fff;
+    margin:0 auto 6px auto;
+    overflow:hidden;
   }
-  .tp-pl{ height:89px; display:flex; flex-direction:column; }
-  .tp-watch, .tp-active{ height:144px; display:flex; flex-direction:column; }
+
+  .tp-pl{
+    height:89px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .tp-watch,
+  .tp-active{
+    height:144px;
+    display:flex;
+    flex-direction:column;
+  }
 
   .tp-hdr{
-    height:28px; display:flex; align-items:center; padding:0 8px;
-    font-weight:800; color:#33415e; background:rgba(255,255,255,.78);
+    height:28px;
+    display:flex;
+    align-items:center;
+    padding:0 8px;
+    font-weight:800;
+    color:#33415e;
+    background:rgba(255,255,255,.78);
     border-bottom:1px solid rgba(10,20,40,.10);
   }
+
   .tp-pl-body{
-    flex:1; display:flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:16px; color:#1b2a4a; white-space:pre-line; text-align:center;
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    font-size:16px;
+    color:#1b2a4a;
+    white-space:pre-line;
+    text-align:center;
   }
+
   .tp-list{
-    flex:1; padding:6px; overflow:auto;
+    flex:1;
+    padding:6px;
+    overflow:auto;
     background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
   }
 
-  /* Rows (symbols) */
+  /* Row layout:
+     left col: symbol + chips
+     right col: LED/status bubble  */
   .tp-row-item{
-    display:grid; grid-template-columns: 1fr auto; gap:6px; align-items:center;
-    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
-    border:1px solid rgba(10,20,40,.12); cursor:pointer; user-select:none;
+    display:grid;
+    grid-template-columns: 1fr auto;
+    gap:6px;
+    align-items:center;
+    padding:6px;
+    margin-bottom:6px;
+    border-radius:8px;
+    background:#fff;
+    border:1px solid rgba(10,20,40,.12);
+    cursor:pointer;
+    user-select:none;
   }
-  .tp-row-item:hover{ background:#eef7ff; }
-.tp-row-item:focus { outline: 2px solid #60a5fa; outline-offset: 2px; }
-  .tp-sym{ font-weight:800; color:#1b2a4a; }
-  .tp-mini{ display:flex; gap:4px; }
-  .tp-chip{
-    border:1px solid rgba(10,20,40,.12); border-radius:999px; padding:2px 6px;
-    font-weight:800; font-size:10px; background:#f8fafc; color:#33415e;
+  .tp-row-item:hover{
+    background:#eef7ff;
+  }
+  .tp-row-item:focus{
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
   }
 
-  /* Bottom buttons (exact sizes) */
+  .tp-left{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  .tp-sym{
+    font-weight:800;
+    color:#1b2a4a;
+  }
+
+  .tp-mini{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+  }
+
+  .tp-chip{
+    border:1px solid rgba(10,20,40,.12);
+    border-radius:999px;
+    padding:2px 6px;
+    font-weight:800;
+    font-size:10px;
+    background:#f8fafc;
+    color:#33415e;
+  }
+
+  /* LED bubble in Active rows */
+  .tp-led{
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    box-shadow:0 0 3px rgba(0,0,0,.6);
+  }
+
+  .tp-led--idle{
+    background:#6b7280;          /* gray / neutral */
+  }
+  .tp-led--pending{
+    background:#eab308;          /* yellow / working */
+    animation: tp-pulse 1s infinite alternate;
+    box-shadow:0 0 6px rgba(234,179,8,.9), 0 0 2px rgba(0,0,0,.4) inset;
+  }
+  .tp-led--ok{
+    background:#22c55e;          /* green / (partially) filled */
+    box-shadow:0 0 6px rgba(34,197,94,.9), 0 0 2px rgba(0,0,0,.4) inset;
+  }
+  .tp-led--fail{
+    background:#ef4444;          /* red / canceled-unfilled, rejected, etc */
+    box-shadow:0 0 6px rgba(239,68,68,.9), 0 0 2px rgba(0,0,0,.4) inset;
+  }
+
+  @keyframes tp-pulse{
+    0%   { opacity:.5; }
+    100% { opacity:1; }
+  }
+
+  /* Bottom control cluster */
   .tp-row{
-    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
-    display:flex; gap:6px; justify-content:flex-start; align-items:center;
+    position:absolute;
+    bottom:6px;
+    left:6px;
+    right:6px;
+    display:flex;
+    flex-wrap:wrap;
+    align-content:flex-start;
+    gap:6px;
+    justify-content:flex-start;
+    align-items:flex-start;
+    height:auto;
   }
+
   .tp-btn{
-    width:55px; height:34px; border-radius:10px; border:1px solid rgba(10,20,40,.14);
-    background:rgba(255,255,255,.95); box-shadow:0 13px 21px rgba(8,16,40,.18);
-    color:#1b2a4a; font-weight:800; cursor:pointer;
+    width:55px;
+    height:34px;
+    border-radius:10px;
+    border:1px solid rgba(10,20,40,.14);
+    background:rgba(255,255,255,.95);
+    box-shadow:0 13px 21px rgba(8,16,40,.18);
+    color:#1b2a4a;
+    font-weight:800;
+    cursor:pointer;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    line-height:1;
+    font-size:13px;
   }
+
+  /* KS button is 34x34px at the end of the row */
+  .tp-btn-ks{
+    width:34px;
+    height:34px;
+    min-width:34px;
+    min-height:34px;
+    padding:0;
+    font-size:12px;
+    line-height:1;
+    justify-content:center;
+  }
+
   .tp-btn--danger{
-    border-color:#dc2626; color:#7a0a0a;
+    border-color:#dc2626;
+    color:#7a0a0a;
+  }
+
+  .tp-btn--buy{
+    border-color:#16a34a;
+    color:#065f46;
+  }
+
+  .tp-btn--sell{
+    border-color:#dc2626;
+    color:#7a0a0a;
+  }
+
+  /* AUTO button states */
+  .tp-auto-led{
+    display:inline-block;
+    width:6px;
+    height:6px;
+    border-radius:999px;
+    margin-left:4px;
+    box-shadow:0 0 2px rgba(0,0,0,.4);
+  }
+
+  /* AUTO off */
+  .tp-auto-off{
+    opacity:.75;
+  }
+  .tp-auto-off .tp-auto-led{
+    background:#4b5563; /* gray */
+  }
+
+  /* AUTO armed (trading live / will auto-fire signals) */
+  .tp-auto-armed{
+    opacity:1;
+    border-color:#16a34a;
+    color:#065f46;
+    box-shadow:0 0 8px rgba(16,185,129,.8), 0 13px 21px rgba(8,16,40,.18);
+  }
+  .tp-auto-armed .tp-auto-led{
+    background:#16a34a;
+    box-shadow:0 0 6px rgba(16,185,129,.9);
   }
 </style>
 
@@ -106,84 +332,199 @@
 (()=>{
   const ROOT = document.getElementById('cycla-trades-widget');
 
-  // Global bus (same one used by Screener/Chart)
-window.CYCLA ??= {};
-window.CYCLA.FEE ??= {
-  venue: 'spot',         // 'spot' | 'derivatives'
-  mode:  'taker',        // assume taker unless you *know* you're maker
-  spot: { maker: 0.0040, taker: 0.0080 },          // 0.40% | 0.80%
-  derivatives: { maker: 0.0002, taker: 0.0002 }    // 0.02% | 0.02%
-};
-
-// Quick switches you can do in console if needed:
-// CYCLA.FEE.mode = 'maker'        // if you know orders rest and make
-// CYCLA.FEE.venue = 'derivatives' // if you flip to perps
-
+  // ------------------ CYCLA namespace prep ------------------
+  window.CYCLA ??= {};
   window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 
+  // trading fee assumptions (used for P/L math)
+  window.CYCLA.FEE ??= {
+    venue: 'spot',         // 'spot' | 'derivatives'
+    mode:  'taker',        // assume taker unless you *know* you're maker
+    spot: { maker: 0.0040, taker: 0.0080 },          // 0.40% | 0.80%
+    derivatives: { maker: 0.0002, taker: 0.0002 }    // 0.02% | 0.02%
+  };
 
+  // per-symbol TF freeze map (AUTO gating uses this; chart also keeps this synced)
+  (window.CYCLA.tfBySymbol ||= Object.create(null));
 
-// NEW: frozen TF per symbol (set when added to Watchlist)
-(window.CYCLA.tfBySymbol ||= Object.create(null));
-
-  // ✅ If the chart exposes RELAY, grab it here (optional, for killswitch)
+  // relay base URL that /order posts to
   const RELAY = window?.CYCLA?.RELAY;
 
-  // Elements
-  const WATCH  = ROOT.querySelector('#tp-watch');
-  const ACTIVE = ROOT.querySelector('#tp-active');
-  const BTN_AUTO = ROOT.querySelector('#tp-auto');
+  // ------------------ Element refs ------------------
+  const WATCH      = ROOT.querySelector('#tp-watch');
+  const ACTIVE     = ROOT.querySelector('#tp-active');
+  const BTN_AUTO   = ROOT.querySelector('#tp-auto-btn');
+  const BTN_KS     = ROOT.querySelector('#tp-ks');
+  const BTN_BUY    = ROOT.querySelector('#tp-buy-btn');
+  const BTN_SELL   = ROOT.querySelector('#tp-sell-btn');
+  const PL_BOX     = ROOT.querySelector('#tp-pl-body');
 
-  const BTN_KS   = ROOT.querySelector('#tp-ks');
-  const PL_BOX   = ROOT.querySelector('#tp-pl-body');
+  // ------------------ Local UI state ------------------
+  const watchSet     = new Set(); // symbols in Watchlist
+  const activeSet    = new Set(); // symbols currently Active
+  const statusBySym  = new Map(); // sym -> 'idle'|'pending'|'ok'|'fail'
 
-  // Local state (symbols as UI-formatted strings like BTCUSD, AAPL, EURUSD)
-  const watchSet  = new Set();
-  const activeSet = new Set();
+  // default notional per click (USD-ish)
+  window.CYCLA.ORDER_USD ??= 3;
 
+  // browser-side AUTO gate (chart's auto executor checks this)
+  window.AUTO = false;
 
-  // ───────────────────────── Helpers ─────────────────────────
+  // ------------------ Helpers shared with manual trade ------------------
+
+  // normalize "BTC-USD" / "BTC/USD" / "btc usd" → "BTCUSD"
   function uiNormalize(sym){
-return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
+    return String(sym||'')
+      .toUpperCase()
+      .replace(/[\/\-\s]/g,'');
   }
 
-function makeRow(sym, where){
-  const row = document.createElement('div');
-  row.className = 'tp-row-item';
-row.setAttribute('role','listitem');
-  row.dataset.sym = sym;
-
-  // ADD: make focusable with keyboard
-  row.tabIndex = 0;
-
-  const left = document.createElement('div');
-  left.className = 'tp-sym';
-  left.textContent = sym;
-
-  const right = document.createElement('div');
-  right.className = 'tp-mini';
-  const chip = document.createElement('div');
-  chip.className = 'tp-chip';
-  chip.textContent = where;
-  right.appendChild(chip);
-
-  row.appendChild(left); row.appendChild(right);
-
-  // Existing: click loads symbol on the chart
-  row.addEventListener('click', ()=>{
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
-  });
-
-  // ADD: keyboard activation (Enter/Space)
-  row.addEventListener('keydown', (e)=>{
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } }));
+  // convert "BTCUSD" → "BTC-USD" etc.
+  function toProductId(sym){
+    const s = String(sym||'').toUpperCase().replace(/\s+/g,'').replace(/\//g,'-');
+    if (s.includes('-')) return s; // already BASE-QUOTE
+    const QUOTES = ['USDC','USD','EUR','GBP']; // longest first so USDC beats USD
+    for (const q of QUOTES){
+      if (s.endsWith(q) && s.length > q.length){
+        return s.slice(0, -q.length) + '-' + q;
+      }
     }
-  });
+    return s;
+  }
 
-  return row;
-}
+  // very loose Coinbase/Robinhood crypto pair check, e.g. BTC-USD, SOL-USD, etc.
+  function isCoinbaseProduct(id){
+    const m = String(id||'').toUpperCase().match(/^([A-Z0-9]+)-(USD|USDC|EUR|GBP)$/);
+    if (!m) return false;
+    const base = m[1];
+    return /[A-Z]/.test(base);
+  }
+
+  function decimals(x){
+    const s = String(x);
+    const i = s.indexOf('.');
+    return i < 0 ? 0 : s.length - i - 1;
+  }
+
+  // round v to step, with mode = 'floor' | 'ceil' | 'round'
+  function roundToStep(v, step, mode='round'){
+    const n = Math.max(0, decimals(step));
+    const k = v / step;
+    const r = mode === 'floor' ? Math.floor(k)
+            : mode === 'ceil'  ? Math.ceil(k)
+            : Math.round(k);
+    return +(r * step).toFixed(n);
+  }
+
+  // heuristic tick for USD-ish quotes
+  function priceStepFor(quote, p){
+    const q = String(quote||'').toUpperCase();
+    if (q==='USD' || q==='USDC' || q==='EUR' || q==='GBP'){
+      return p < 1 ? 0.0001 : 0.01;
+    }
+    return 0.00000001; // fallback for crypto quotes
+  }
+
+  const BASE_SIZE_STEP = 0.000001; // we floor size to this
+
+  // For manual SELL: try to dump current held qty if we have an open position,
+  // else fall back to new-size based on ORDER_USD
+  function chooseQty(symUI, side, px){
+    if (side === 'SELL' && ledger.open.has(symUI)){
+      const pos = ledger.open.get(symUI);
+      if (pos && pos.qty > 0){
+        return pos.qty;
+      }
+    }
+    // else buy-size logic ($3-ish worth)
+    return sizeForPrice(px);
+  }
+
+  // ------------------ LED helpers ------------------
+  function applyStatusToRow(row, sym){
+    const led = row.querySelector('.tp-led');
+    if (!led) return;
+
+    const st = statusBySym.get(sym) || 'idle';
+
+    led.classList.remove('tp-led--idle','tp-led--pending','tp-led--ok','tp-led--fail');
+    if (st === 'pending') led.classList.add('tp-led--pending');
+    else if (st === 'ok') led.classList.add('tp-led--ok');
+    else if (st === 'fail') led.classList.add('tp-led--fail');
+    else led.classList.add('tp-led--idle');
+
+    row.setAttribute('aria-label', `${sym} — ${st}`);
+  }
+
+  function updateActiveRowLED(sym){
+    const row = ACTIVE.querySelector(`.tp-row-item[data-sym="${sym}"]`);
+    if (row){
+      applyStatusToRow(row, sym);
+    }
+  }
+
+  // ------------------ Row builders ------------------
+  function makeRow(sym, where){
+    const row = document.createElement('div');
+    row.className = 'tp-row-item';
+    row.setAttribute('role','listitem');
+    row.dataset.sym = sym;
+    row.tabIndex = 0;
+
+    const left = document.createElement('div');
+    left.className = 'tp-left';
+
+    const symEl = document.createElement('div');
+    symEl.className = 'tp-sym';
+    symEl.textContent = sym;
+    left.appendChild(symEl);
+
+    const mini = document.createElement('div');
+    mini.className = 'tp-mini';
+
+    const chip = document.createElement('div');
+    chip.className = 'tp-chip';
+    chip.textContent = where;
+    mini.appendChild(chip);
+
+    left.appendChild(mini);
+
+    // right col: LED only for Active rows
+    let right;
+    if (where === 'Active'){
+      right = document.createElement('div');
+      const led = document.createElement('div');
+      led.className = 'tp-led tp-led--idle';
+      led.setAttribute('aria-hidden','true');
+      right.appendChild(led);
+    } else {
+      right = document.createElement('div');
+    }
+
+    row.appendChild(left);
+    row.appendChild(right);
+
+    // click / enter loads that symbol on the chart
+    function loadSym(){
+      window.CYCLA.bus.dispatchEvent(
+        new CustomEvent('cycla:load', { detail:{ symbol: sym } })
+      );
+    }
+    row.addEventListener('click', loadSym);
+    row.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        loadSym();
+      }
+    });
+
+    // if Active, sync LED status
+    if (where === 'Active'){
+      applyStatusToRow(row, sym);
+    }
+
+    return row;
+  }
 
   function renderList(container, set, where){
     container.innerHTML = '';
@@ -192,254 +533,504 @@ row.setAttribute('role','listitem');
     }
   }
 
-  // ✅ Clear lists when the chart tells us to (e.g., kill switch from chart)
+  // ------------------ AUTO button wiring ------------------
+  function updateAutoVisual(){
+    if (window.AUTO){
+      BTN_AUTO.setAttribute('aria-pressed', 'true');
+      BTN_AUTO.dataset.state = 'on';
+      BTN_AUTO.classList.add('tp-auto-armed');
+      BTN_AUTO.classList.remove('tp-auto-off');
+    } else {
+      BTN_AUTO.setAttribute('aria-pressed', 'false');
+      BTN_AUTO.dataset.state = 'off';
+      BTN_AUTO.classList.remove('tp-auto-armed');
+      BTN_AUTO.classList.add('tp-auto-off');
+    }
+  }
+
+  BTN_AUTO.addEventListener('click', ()=>{
+    // flip AUTO
+    window.AUTO = !window.AUTO;
+    console.log('[CYCLA AUTO] client AUTO is now', window.AUTO);
+
+    if (window.AUTO){
+      // broadcast start → chart listener tightens gating etc.
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
+
+      // keep your default per-trade USD
+      window.CYCLA.ORDER_USD = 3;
+
+      // promote watchlist items into Active once AUTO arms
+      if (watchSet.size){
+        for (const s of watchSet){
+          activeSet.add(s);
+          if (!statusBySym.has(s)) statusBySym.set(s, 'idle');
+        }
+        watchSet.clear();
+        renderList(WATCH, watchSet, 'Watch');
+        renderList(ACTIVE, activeSet, 'Active');
+      }
+    } else {
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+    }
+
+    updateAutoVisual();
+  });
+
+  // if something else says "stop", mirror that
+  window.CYCLA.bus.addEventListener('cycla:auto:stop', ()=>{
+    window.AUTO = false;
+    updateAutoVisual();
+  });
+
+  // ------------------ KS button wiring ------------------
+  BTN_KS.addEventListener('click', async ()=>{
+    // broadcast stop so AUTO shuts down
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+
+    // nuke active trades / reset P&L / reset LEDs
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
+
+    // force AUTO visuals "off"
+    window.AUTO = false;
+    updateAutoVisual();
+
+    // hard kill on relay side, if available
+    if (RELAY){
+      try {
+        await fetch(`${RELAY}/killswitch`, { method:'POST' });
+      } catch(_){}
+    }
+  });
+
+  // init AUTO button visuals
+  updateAutoVisual();
+
+  // ------------------ P/L HUD + ledger ------------------
+  const fmtUSD = (n)=>
+    Number(n||0).toLocaleString(
+      'en-US',
+      { minimumFractionDigits:2, maximumFractionDigits:2 }
+    );
+
+  function feeRate(){
+    const F = window?.CYCLA?.FEE || {};
+    const book = F[F.venue || 'spot'] || { maker:0, taker:0 };
+    return (F.mode === 'maker' ? book.maker : book.taker) || 0;
+  }
+
+  // floor $3 worth of coin to ~1e-6 base step
+  function sizeForPrice(p){
+    const usd  = Number(window?.CYCLA?.ORDER_USD ?? 3);
+    const step = 0.000001;
+    const raw  = usd / p;
+    const sized = Math.floor(raw / step) * step;
+    return Math.max(0, +sized.toFixed(6));
+  }
+
+  // running ledger of open/closed positions for HUD
+  const ledger = {
+    open:   new Map(), // sym -> {price, qty, time}
+    closed: [],
+    totals: { buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 }
+  };
+
+  // last seen mark price per symbol (for unrealized P/L calc)
+  const lastPrice = new Map();
+
+  function renderPLFromTotals(){
+    const t = ledger.totals;
+    const mode  = (window?.CYCLA?.FEE?.mode  || 'taker');
+    const venue = (window?.CYCLA?.FEE?.venue || 'spot');
+
+    let text =
+      `Buys: ${t.buys}   Sells: ${t.sells}\n` +
+      `Realized: $${fmtUSD(t.net)}   (Gross $${fmtUSD(t.gross)} • Fees $${fmtUSD(t.fees)})\n`;
+
+    const u = liveUnrealized();
+    if (Number.isFinite(u.uNet) && (ledger.open.size > 0)){
+      text += `Unrealized: $${fmtUSD(u.uNet)}   Open: ${ledger.open.size} pos`;
+    }
+
+    text += `\n[${mode}/${venue}]`;
+    PL_BOX.textContent = text;
+  }
+
+  // de-dupe legs so we don't double-book fills
+  const _legSeen = new Map();
+  function _legKey(d){
+    return `${d.symbol}|${d.side}|${d.time}|${+d.price}|${+d.qty}`;
+  }
+  function rememberLegOnce(d, ttlMs = 5*60*1000){
+    const now = Date.now();
+    for (const [k, until] of _legSeen){
+      if (until <= now) _legSeen.delete(k);
+    }
+    const key = _legKey(d);
+    if (_legSeen.has(key)) return false;
+    _legSeen.set(key, now + ttlMs);
+    return true;
+  }
+
+  function addLeg({ symbol, side, price, qty, time }){
+    const sym = uiNormalize(symbol);
+    const q   = Number(qty || sizeForPrice(Number(price)));
+    const px  = Number(price);
+    if (!sym || !Number.isFinite(px) || !Number.isFinite(q) || q <= 0) return;
+    if (!rememberLegOnce({symbol:sym, side, price:px, qty:q, time})) return;
+
+    if (side === 'BUY'){
+      const o = ledger.open.get(sym);
+      if (o){
+        const newQty = +(o.qty + q).toFixed(6);
+        const newPx  = +((o.qty * o.price + q * px) / newQty).toFixed(8);
+        ledger.open.set(sym, { price:newPx, qty:newQty, time: o.time ?? time });
+      } else {
+        ledger.open.set(sym, { price:px, qty:q, time });
+      }
+      ledger.totals.buys += 1;
+      lastPrice.set(sym, px);
+    }
+    else if (side === 'SELL'){
+      ledger.totals.sells += 1;
+      const o = ledger.open.get(sym);
+      if (o){
+        const fr       = feeRate();
+        const closeQty = Math.min(o.qty, q);
+        const buyUsd   = closeQty * o.price;
+        const sellUsd  = closeQty * px;
+        const fees     = buyUsd * fr + sellUsd * fr;
+        const gross    = sellUsd - buyUsd;
+        const net      = gross - fees;
+
+        ledger.closed.push({
+          symbol:sym,
+          buy:{...o, qty:closeQty},
+          sell:{ price:px, qty:closeQty, time },
+          gross, fees, net
+        });
+
+        ledger.totals.gross  += gross;
+        ledger.totals.fees   += fees;
+        ledger.totals.net    += net;
+        if (net >= 0) ledger.totals.wins++; else ledger.totals.losses++;
+
+        o.qty = +(o.qty - closeQty).toFixed(6);
+        if (o.qty <= 1e-12){
+          ledger.open.delete(sym);
+        } else {
+          ledger.open.set(sym, o);
+        }
+      }
+    }
+
+    renderPLFromTotals();
+  }
+
+  function liveUnrealized(){
+    const fr = feeRate();
+    let uGross = 0, uFees = 0;
+    for (const [sym, o] of ledger.open){
+      const p = lastPrice.get(sym);
+      if (!Number.isFinite(p)) continue;
+      const buyUsd   = o.qty * o.price;
+      const closeUsd = o.qty * p;
+      uGross += (closeUsd - buyUsd);
+      uFees  += buyUsd * fr + closeUsd * fr;
+    }
+    return { uGross, uFees, uNet: uGross - uFees };
+  }
+
+  // snapshot P/L if we have no real fills yet (visible markers from chart)
+  function computeFromSnapshot(payload){
+    if (ledger.closed.length || ledger.open.size) return; // real > snapshot
+    if(!payload || !payload.markers || !payload.visible || !payload.priceByTime) return;
+
+    const { from, to } = payload.visible || {};
+    const priceByTime = payload.priceByTime || {};
+    const markers = (payload.markers || []).filter(m =>
+      typeof m?.time === 'number' &&
+      m.time >= from &&
+      m.time <= to
+    );
+
+    const fr = feeRate();
+    let buys=0, sells=0, gross=0, fees=0;
+    let open = null;
+
+    for (const m of markers){
+      let side = String(m?.text||'').toUpperCase();
+      if (side !== 'BUY' && side !== 'SELL'){
+        if (m.position === 'belowBar') side = 'BUY';
+        else if (m.position === 'aboveBar') side = 'SELL';
+        else continue;
+      }
+
+      const px = Number(priceByTime[m.time] ?? m.price ?? NaN);
+      if (!Number.isFinite(px) || px<=0) continue;
+
+      if (side === 'BUY'){
+        open = { price:px };
+        buys++;
+      } else if (side === 'SELL' && open){
+        const q  = sizeForPrice(open.price);
+        const bU = q * open.price;
+        const sU = q * px;
+        const g  = sU - bU;
+        const f  = bU*fr + sU*fr;
+        gross += g;
+        fees  += f;
+        sells++;
+        open = null;
+      }
+    }
+
+    PL_BOX.textContent =
+      `Buys: ${buys}   Sells: ${sells}\n` +
+      `Gross: $${fmtUSD(gross)}   Fees: $${fmtUSD(fees)}\n` +
+      `Net: $${fmtUSD(gross - fees)}  [sim]`;
+  }
+
+  // ------------------ Manual order executor (BUY / SELL buttons) ------------------
+
+  async function manualOrder(side){
+    // Pull current symbol / tf / price / bar time straight from the chart widget globals.
+    const symUI  = uiNormalize(window?.CYCLA?.symbolNow?.() || '');
+    const tf     = String(window?.CYCLA?.currentTF || '1m').toUpperCase();
+    const pxRaw  = Number(window?.CYCLA?.priceNow?.() ?? NaN);
+    const barT   = Number(window?.CYCLA?.timeNow?.() ?? Math.floor(Date.now()/1000));
+
+    if (!symUI || !Number.isFinite(pxRaw) || pxRaw <= 0){
+      console.warn('[manualOrder] missing symbol / price; abort', {symUI, pxRaw});
+      return;
+    }
+
+    // Build product_id like "BTC-USD"
+    const product_id = toProductId(symUI);
+    if (!isCoinbaseProduct(product_id)){
+      console.warn('[manualOrder] not a valid product_id for relay', product_id);
+      return;
+    }
+
+    // Round limit price to tick:
+    const [, quote] = product_id.split('-');
+    const pStep     = priceStepFor(quote, pxRaw);
+    const limitPx   = (side === 'SELL')
+      ? roundToStep(pxRaw, pStep, 'ceil')   // SELL nudges up to next tick
+      : roundToStep(pxRaw, pStep, 'floor'); // BUY nudges down to next tick
+
+    // Choose size: for SELL, try full open qty first; else ~$3 notional
+    const rawQty    = chooseQty(symUI, side, limitPx);
+    const qtyRounded= roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
+
+    if (!Number.isFinite(limitPx) || limitPx <= 0 ||
+        !Number.isFinite(qtyRounded) || qtyRounded <= 0){
+      console.warn('[manualOrder] bad rounded px/qty', {limitPx, qtyRounded});
+      return;
+    }
+
+    // freeze TF for that symbol (so AUTO can't snipe same ticker on a diff TF later)
+    window.CYCLA.tfBySymbol[symUI] = tf;
+
+    // Immediately reflect "pending" in Active Trades HUD
+    statusBySym.set(symUI, 'pending');
+    // make sure symbol is in Active list visually
+    if (!activeSet.has(symUI)){
+      activeSet.add(symUI);
+      renderList(ACTIVE, activeSet, 'Active');
+    }
+    updateActiveRowLED(symUI);
+
+    // Fire an optimistic leg + queued event so P/L HUD reacts *now*
+    // NOTE: this mirrors chart's 'cycla:order:queued' payload
+    const queuedDetail = {
+      symbol: symUI,
+      tf,
+      side,
+      time: barT,
+      price: limitPx,
+      qty: qtyRounded,
+      usd: Number(window?.CYCLA?.ORDER_USD ?? 3)
+    };
+
+    // tell P/L HUD and other panels
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
+      detail: queuedDetail
+    }));
+
+    // Also stuff it into ledger locally, in case the other listener didn't run yet
+    addLeg({
+      symbol: symUI,
+      side,
+      price: limitPx,
+      qty: qtyRounded,
+      time: barT
+    });
+
+    // Prepare request body for relay /order
+    const body = {
+      product_id,
+      side,                       // "BUY" | "SELL"
+      type: "limit",
+      price: limitPx,
+      size: qtyRounded,
+      seconds: 60,                // give it up to ~60s then cancel / best-effort fill
+      client_order_id: `${symUI}-${tf}-${barT}-${side}-manual`,
+      symbol_raw: symUI
+    };
+
+    console.log('POST /order body →', body);
+
+    // Actually send order to RELAY
+    if (!RELAY){
+      console.warn('[manualOrder] RELAY missing, skipping fetch');
+      // mark as fail since we couldn't even send
+      statusBySym.set(symUI, 'fail');
+      updateActiveRowLED(symUI);
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol:symUI, status:'fail' }
+      }));
+      return;
+    }
+
+    const t0 = Date.now();
+    try{
+      const res = await fetch(`${RELAY}/order`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+      });
+      const ms = Date.now() - t0;
+      let json;
+      try{ json = await res.json(); }catch(_){}
+      console.log(`POST /order ← ${res.status} ${res.statusText} in ${ms}ms`, json);
+
+      // Heuristic fill outcome:
+      // If backend returns filled_qty > 0 => "ok" (green)
+      // else => "fail" (red). We treat "timeout canceled, 0.00 filled" as fail.
+      let finalState = 'fail';
+      const filled = Number(json?.result?.filled_qty ?? 0);
+      if (filled > 0){
+        finalState = 'ok';
+      }
+
+      statusBySym.set(symUI, finalState);
+      updateActiveRowLED(symUI);
+
+      // broadcast so any other widgets mirror LED color
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol:symUI, status:finalState }
+      }));
+
+    }catch(err){
+      console.warn('manualOrder fetch failed:', err);
+      statusBySym.set(symUI, 'fail');
+      updateActiveRowLED(symUI);
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol:symUI, status:'fail' }
+      }));
+    }
+  }
+
+BTN_BUY.onclick  = ()=> manualOrder('BUY');
+BTN_SELL.onclick = ()=> manualOrder('SELL');
+
+  // ------------------ Cross-widget event wiring ------------------
+
+  // live price ticks keep unrealized P/L up to date
+  window.CYCLA.bus.addEventListener('cycla:price:tick', (e)=>{
+    const d = e.detail || {};
+    const sym = uiNormalize(d.symbol);
+    const px  = Number(d.price);
+    if (!sym || !Number.isFinite(px)) return;
+    lastPrice.set(sym, px);
+    if (ledger.open.has(sym)){
+      renderPLFromTotals();
+    }
+  });
+
+  // initial snapshot from chart markers → seed P/L HUD before any fills
+  window.CYCLA.bus.addEventListener('cycla:chart:markers', (e)=>{
+    computeFromSnapshot(e.detail || {});
+  });
+
+  // generic "this trade leg executed" event from anywhere (AUTO, manual, backend push, etc)
+  window.CYCLA.bus.addEventListener('cycla:pl:leg', (e)=>{
+    addLeg(e.detail || {});
+  });
+
+  // order queued (AUTO path / manual path emits this too)
+  window.CYCLA.bus.addEventListener('cycla:order:queued', (e)=>{
+    addLeg(e.detail || {});
+  });
+
+  // external order status updates (AUTO path already emits this)
+  // detail: { symbol:"BTCUSD", status:"pending"|"ok"|"fail" }
+  window.CYCLA.bus.addEventListener('cycla:order:status', (e)=>{
+    const d   = e.detail || {};
+    const sym = uiNormalize(d.symbol || '');
+    const st  = d.status || 'idle';
+    if (!sym) return;
+
+    // ensure symbol visible in Active
+    if (!activeSet.has(sym)){
+      activeSet.add(sym);
+      if (!statusBySym.has(sym)) statusBySym.set(sym, 'idle');
+      renderList(ACTIVE, activeSet, 'Active');
+    }
+
+    statusBySym.set(sym, st);
+    updateActiveRowLED(sym);
+  });
+
+  // global nuke (killswitch etc.)
   window.CYCLA.bus.addEventListener('cycla:trades:clear', ()=>{
     activeSet.clear();
     renderList(ACTIVE, activeSet, 'Active');
+
+    statusBySym.clear(); // LEDs reset
+
+    ledger.open.clear();
+    ledger.closed.length = 0;
+    ledger.totals = {
+      buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0
+    };
+    renderPLFromTotals();
   });
 
-// Toggle AUTO on/off and reflect state in aria-pressed
-BTN_AUTO.addEventListener('click', () => {
-  const pressed = BTN_AUTO.getAttribute('aria-pressed') === 'true';
+  // watchlist:add (user flags a symbol to stalk or chart's W button fires this)
+  // detail: { symbol:"BTCUSD", tf:"1m" }
+  window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+    const d   = e.detail || {};
+    const sym = uiNormalize(d.symbol || '');
+    if(!sym) return;
 
-  if (!pressed) {
-    // Turn AUTO ON
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
-    window.CYCLA.ORDER_USD = 3;
-    BTN_AUTO.setAttribute('aria-pressed', 'true');
+    // record TF at add-time, charts/AUTO use this
+    if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
 
-    // Move Watch → Active (existing behavior)
-    if (watchSet.size) {
-      for (const s of watchSet) activeSet.add(s);
-      watchSet.clear();
-      renderList(WATCH, watchSet, 'Watch');
-      renderList(ACTIVE, activeSet, 'Active');
-    }
-  } else {
-    // Turn AUTO OFF
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-    // Button will also be reset by the global listener below
-  }
-});
+    // don't duplicate
+    if (activeSet.has(sym)) return;
+    if (!watchSet.has(sym)) watchSet.add(sym);
 
-// Whenever AUTO stops (from anywhere), reflect it on the button
-window.CYCLA.bus.addEventListener('cycla:auto:stop', () => {
-  BTN_AUTO.setAttribute('aria-pressed', 'false');
-});
+    renderList(WATCH, watchSet, 'Watch');
+  });
 
-BTN_KS.addEventListener('click', async ()=>{
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
-  BTN_AUTO.setAttribute('aria-pressed', 'false');   // ← add this line
+  // legacy trades:add -> treat like watchlist:add
+  window.CYCLA.bus.addEventListener('cycla:trades:add', (e)=>{
+    const d   = e.detail || {};
+    const sym = uiNormalize(d.symbol || '');
+    if(!sym) return;
 
-  if (RELAY) { try { await fetch(`${RELAY}/killswitch`, { method:'POST' }); } catch(_){} }
-});
+    if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
 
-// ───────────────────────── P/L HUD patch (fee-aware ledger, net P/L) ─────────────────────────
-const fmtUSD = (n)=> Number(n||0).toLocaleString('en-US',{ minimumFractionDigits:2, maximumFractionDigits:2 });
+    if (activeSet.has(sym) || watchSet.has(sym)) return;
+    watchSet.add(sym);
+    renderList(WATCH, watchSet, 'Watch');
+  });
 
-function feeRate(){
-  const F = window?.CYCLA?.FEE || {};
-  const book = F[F.venue || 'spot'] || { maker:0, taker:0 };
-  return (F.mode === 'maker' ? book.maker : book.taker) || 0;
-}
-function sizeForPrice(p){
-  const usd  = Number(window?.CYCLA?.ORDER_USD ?? 3);
-  const step = 0.000001;
-  const raw  = usd / p;
-  const sized = Math.floor(raw / step) * step;
-  return Math.max(0, +sized.toFixed(6));
-}
-
-// --- Minimal ledger (real legs from the chart) ---
-const ledger = {
-  open:   new Map(), // sym -> {price, qty, time}
-  closed: [],
-  totals: { buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 }
-};
-
-function renderPLFromTotals(){
-  const t = ledger.totals;
-  const mode  = (window?.CYCLA?.FEE?.mode  || 'taker');
-  const venue = (window?.CYCLA?.FEE?.venue || 'spot');
-
-  let text =
-    `Buys: ${t.buys}   Sells: ${t.sells}\n` +
-    `Realized: $${fmtUSD(t.net)}   (Gross $${fmtUSD(t.gross)} • Fees $${fmtUSD(t.fees)})\n`;
-
-  const u = liveUnrealized();
-  if (Number.isFinite(u.uNet) && (ledger.open.size > 0)){
-    text += `Unrealized: $${fmtUSD(u.uNet)}   Open: ${ledger.open.size} pos`;
-  }
-
-  text += `\n[${mode}/${venue}]`;
-  PL_BOX.textContent = text;
-}
-
-// Accept a real leg from the chart relay
-// De-dupe real legs (5 min TTL)
-const _legSeen = new Map();
-function _legKey(d){ return `${d.symbol}|${d.side}|${d.time}|${+d.price}|${+d.qty}`; }
-function rememberLegOnce(d, ttlMs = 5*60*1000){
-  const now = Date.now();
-  for (const [k, until] of _legSeen) if (until <= now) _legSeen.delete(k);
-  const key = _legKey(d);
-  if (_legSeen.has(key)) return false;
-  _legSeen.set(key, now + ttlMs);
-  return true;
-}
-
-const lastPrice = new Map();
-function addLeg({ symbol, side, price, qty, time }){
-  const sym = String(symbol||'').toUpperCase().replace(/[\/\-\s]/g,'');
-  const q   = Number(qty || sizeForPrice(Number(price)));
-  const px  = Number(price);
-  if (!sym || !Number.isFinite(px) || !Number.isFinite(q) || q <= 0) return;
-  if (!rememberLegOnce({symbol:sym, side, price:px, qty:q, time})) return;
-
-  if (side === 'BUY'){
-    // ✅ combine multiple buys: new average price + bigger size
-    const o = ledger.open.get(sym);
-    if (o){
-      const newQty = +(o.qty + q).toFixed(6);
-      const newPx  = +((o.qty * o.price + q * px) / newQty).toFixed(8);
-      ledger.open.set(sym, { price:newPx, qty:newQty, time: o.time ?? time });
-    }else{
-      ledger.open.set(sym, { price:px, qty:q, time });
-    }
-    ledger.totals.buys += 1;
-    // optional: show unrealized P/L immediately
-    lastPrice.set(sym, px);
-  }
-  else if (side === 'SELL'){
-    // your existing partial-close logic
-    ledger.totals.sells += 1;
-    const o = ledger.open.get(sym);
-    if (o){
-      const fr = feeRate();
-      const closeQty = Math.min(o.qty, q);
-      const buyUsd   = closeQty * o.price;
-      const sellUsd  = closeQty * px;
-      const fees     = buyUsd * fr + sellUsd * fr;
-      const gross    = sellUsd - buyUsd;
-      const net      = gross - fees;
-
-      ledger.closed.push({ symbol:sym, buy:{...o, qty:closeQty}, sell:{ price:px, qty:closeQty, time }, gross, fees, net });
-      ledger.totals.gross += gross;
-      ledger.totals.fees  += fees;
-      ledger.totals.net   += net;
-      if (net >= 0) ledger.totals.wins++; else ledger.totals.losses++;
-
-      // reduce remaining open qty
-      o.qty = +(o.qty - closeQty).toFixed(6);
-      if (o.qty <= 1e-12) ledger.open.delete(sym);
-      else ledger.open.set(sym, o);
-    }
-  }
-
-  renderPLFromTotals();
-}
-
-// Live price cache (per symbol)
-function liveUnrealized(){
-  const fr = feeRate();
-  let uGross = 0, uFees = 0;
-  for (const [sym, o] of ledger.open){
-    const p = lastPrice.get(sym);
-    if (!Number.isFinite(p)) continue;
-    const buyUsd   = o.qty * o.price;
-    const closeUsd = o.qty * p;
-    uGross += (closeUsd - buyUsd);
-    uFees  += buyUsd * fr + closeUsd * fr;  // rough fees estimate
-  }
-  return { uGross, uFees, uNet: uGross - uFees };
-}
-
-// Marker fallback (only if you haven’t traded in this session)
-function computeFromSnapshot(payload){
-  if (ledger.closed.length || ledger.open.size) return; // real beats simulated
-  if(!payload || !payload.markers || !payload.visible || !payload.priceByTime) return;
-
-  const { from, to } = payload.visible || {};
-  const priceByTime = payload.priceByTime || {};
-  const markers = (payload.markers || []).filter(m => typeof m?.time === 'number' && m.time >= from && m.time <= to);
-
-  const fr = feeRate();
-  let buys=0, sells=0, gross=0, fees=0;
-  let open = null;
-
-  for (const m of markers){
-    let side = String(m?.text||'').toUpperCase();
-    if (side !== 'BUY' && side !== 'SELL'){
-      if (m.position === 'belowBar') side = 'BUY';
-      else if (m.position === 'aboveBar') side = 'SELL';
-      else continue;
-    }
-    const px = Number(priceByTime[m.time] ?? m.price ?? NaN);
-    if (!Number.isFinite(px) || px<=0) continue;
-
-    if (side === 'BUY'){ open = { price:px }; buys++; }
-    else if (side === 'SELL' && open){
-      const q  = sizeForPrice(open.price);
-      const bU = q * open.price;
-      const sU = q * px;
-      const g  = sU - bU;
-      const f  = bU*fr + sU*fr;
-      gross += g; fees += f; sells++; open = null;
-    }
-  }
-  PL_BOX.textContent =
-    `Buys: ${buys}   Sells: ${sells}\n` +
-    `Gross: $${fmtUSD(gross)}   Fees: $${fmtUSD(fees)}\n` +
-    `Net: $${fmtUSD(gross - fees)}  [sim]`;
-}
-
-// Wire up events (single set — remove any duplicates below your old block)
-window.CYCLA.bus.addEventListener('cycla:price:tick', (e)=>{
-  const d = e.detail || {};
-  const sym = String(d.symbol||'').toUpperCase().replace(/[\/\-\s]/g,'');
-  const px  = Number(d.price);
-  if (!sym || !Number.isFinite(px)) return;
-  lastPrice.set(sym, px);
-  if (ledger.open.has(sym)) renderPLFromTotals();
-});
-
-window.CYCLA.bus.addEventListener('cycla:chart:markers', (e)=> computeFromSnapshot(e.detail || {}));
-window.CYCLA.bus.addEventListener('cycla:pl:leg',        (e)=> addLeg(e.detail || {}));
-window.CYCLA.bus.addEventListener('cycla:order:queued',  (e)=> addLeg(e.detail || {}));
-window.CYCLA.bus.addEventListener('cycla:trades:clear',  ()=>{
-  ledger.open.clear(); ledger.closed.length = 0;
-  ledger.totals = { buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 };
-  renderPLFromTotals();
-});
-
-// Initial paint
-renderPLFromTotals();
- 
-  // ───────────────────────── Existing watchlist/active logic (unchanged) ─────────────────────────
-window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
-  const d   = e.detail || {};
-  const sym = uiNormalize(d.symbol || '');
-  if(!sym) return;
-  // freeze TF at add-time (case-insensitive)
-  if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
-  if (activeSet.has(sym)) return;   // already active → ignore
-  if (!watchSet.has(sym)) watchSet.add(sym);
-  renderList(WATCH, watchSet, 'Watch');
-});
-
-window.CYCLA.bus.addEventListener('cycla:trades:add', (e)=>{
-  const d   = e.detail || {};
-  const sym = uiNormalize(d.symbol || '');
-  if(!sym) return;
-  if (d.tf) window.CYCLA.tfBySymbol[sym] = String(d.tf).toUpperCase();
-  if(activeSet.has(sym)) return;
-  watchSet.add(sym);
-  renderList(WATCH, watchSet, 'Watch');
-});
-
-  // Initial paints
+  // first paint
   renderList(WATCH, watchSet, 'Watch');
   renderList(ACTIVE, activeSet, 'Active');
+  renderPLFromTotals();
 })();
 </script>
