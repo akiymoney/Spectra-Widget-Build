@@ -223,7 +223,8 @@ window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
 
 const RELAY = "https://spectra-trade-bot.onrender.com";
 window.CYCLA.RELAY = RELAY; // ✅ expose to other widgets
-
+ const DAEMON = "http://localhost:8080";   // local auto-daemon URL
+  window.CYCLA.DAEMON = DAEMON;             // expose to other widgets
 window.CYCLA.ORDER_USD = 3;   // default USD/ trade
 
 // ---- /order fetch logger (once) --------------------------------------------
@@ -490,18 +491,17 @@ window.CYCLA.bus.addEventListener("cycla:signal", (e) => {
   (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
 
   // Queue actual relay order
-  _q.push({
-    uiSym,
-    body: {
-      product_id,
-      side,
-      type: "limit",
-      price: priceRounded,
-      size:  sizeRounded,
-      seconds: 60,
-      client_order_id: `${symbol}-${tf}-${time}-${side}`
-    }
-  });
+_q.push({
+  uiSym,
+  body: {
+    symbol: product_id,             // ← key must be 'symbol'
+    side,
+    price: priceRounded,
+    size:  sizeRounded,
+    seconds: 60,
+    client_order_id: `${symbol}-${tf}-${time}-${side}`
+  }
+});
 
   _drainQueue();
 });
