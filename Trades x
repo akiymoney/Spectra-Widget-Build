@@ -1,4 +1,4 @@
-<!-- CYCLA • Trades Panel (233x523) • LED status • P/L HUD • AUTO • Manual BUY/SELL -->
+<!-- CYCLA • Trades Panel (233x523) • P/L • Watchlist • Active Trades • Info banner • AUTO/BUY/SELL/KS -->
 <div id="cycla-trades-center" style="--block-h:523px;">
   <div id="cycla-trades-widget" role="region" aria-label="CYCLA Trades Panel">
     <div class="tp-label" aria-hidden="true">Cycla Trades</div>
@@ -11,319 +11,98 @@
 
     <!-- Second HUD: Watchlist (233x144) -->
     <section class="tp-hud tp-watch" aria-labelledby="hdr-watch">
-      <header class="tp-hdr" id="hdr-watch">Watchlist</header>
-      <div class="tp-list" id="tp-watch" role="list" aria-labelledby="hdr-watch"></div>
+      <header class="tp-hdr" id="hdr-watch">
+        Watchlist
+        <button id="tp-watch-clear" class="tp-ico-btn" title="Clear Watchlist" aria-label="Clear Watchlist">✕</button>
+      </header>
+      <div class="tp-list" id="tp-watch-list" role="listbox" aria-label="Watchlist"></div>
     </section>
 
     <!-- Third HUD: Active Trades (233x144) -->
     <section class="tp-hud tp-active" aria-labelledby="hdr-active">
       <header class="tp-hdr" id="hdr-active">Active Trades</header>
-      <div class="tp-list" id="tp-active" role="list" aria-labelledby="hdr-active"></div>
+      <div class="tp-list" id="tp-active-list" role="listbox" aria-label="Active Trades"></div>
     </section>
 
-    <!-- Bottom control cluster -->
-    <div class="tp-row">
-      <!-- AUTO toggle -->
-      <button id="tp-auto-btn"
-              class="tp-btn tp-auto-off"
-              type="button"
-              aria-controls="tp-watch tp-active"
-              aria-pressed="false"
-              data-state="off"
-              title="AUTO trade on signal">
-        AUTO
-        <span class="tp-auto-led" aria-hidden="true"></span>
-      </button>
+    <!-- Fourth HUD: Info banner (233x34) -->
+    <section class="tp-hud tp-info" aria-label="Info">
+      <div class="tp-info-marquee" id="tp-info-banner" aria-live="polite">Trades ECU: ready.</div>
+    </section>
 
-      <!-- BUY button (manual limit-buy @ current price w/ 60s timeout) -->
-      <button id="tp-buy-btn"
-              class="tp-btn tp-btn--buy"
-              type="button"
-              title="Instant BUY (limit @ current price / best bid, cancel in 60s)">
-        BUY
-      </button>
-
-      <!-- SELL button (manual limit-sell @ current price, cancel in 60s) -->
-      <button id="tp-sell-btn"
-              class="tp-btn tp-btn--sell"
-              type="button"
-              title="Instant SELL (limit @ current price / best ask, cancel in 60s)">
-        SELL
-      </button>
-
-      <!-- KS button -->
-      <button id="tp-ks"
-              class="tp-btn tp-btn--danger tp-btn-ks"
-              type="button"
-              aria-controls="tp-active"
-              title="Killswitch / Clear Active Trades">
-        KS
-      </button>
+    <!-- Bottom row: AUTO / BUY / SELL / KS (each 34x34) -->
+    <div class="tp-toolbar" role="toolbar" aria-label="Trade controls">
+      <button id="tp-auto" class="tp-btn" title="AUTO" aria-pressed="false">🤖</button>
+      <button id="tp-buy"  class="tp-btn" title="BUY">B</button>
+      <button id="tp-sell" class="tp-btn" title="SELL">S</button>
+      <button id="tp-ks"   class="tp-btn" title="Kill Switch">⏻</button>
     </div>
   </div>
 </div>
 
 <style>
-  :root{
-    --tp-bg-top:#f6f9ff;
-    --tp-bg-bot:#eef6ff;
-    --tp-hud-bg:#ffffffc7;
-    --tp-hud-brd:rgba(10,20,40,.12);
-    --tp-hud-h:144px;
-    --tp-hud-p:6px;
-    --tp-hdr-h:23px;
-  }
-
+  #cycla-trades-center *{ box-sizing:border-box; }
   #cycla-trades-center{
-    width:233px;
-    height:var(--block-h,523px);
-    display:flex;
-    align-items:flex-start;
-    justify-content:center;
-    margin:0 auto;
-    padding:0;
+    width:100%; height:var(--block-h,523px);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
   }
-
-  /* Root 233×523 */
+  /* Root 233×523: glassy shell to match Screener */
   #cycla-trades-widget{
     position:relative;
-    width:233px;
-    height:523px;
-    margin:0 auto;
-    border-radius:12px;
-    border:1px solid rgba(10,20,40,.12);
+    width:233px; height:523px; margin:0 auto;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
     box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
     background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
     font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:#0b1220;
-    overflow:hidden;
-    padding:6px;
+    color:#0b1220; overflow:hidden;
   }
+  .tp-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
 
-  .tp-label{
-    position:absolute;
-    top:6px;
-    left:8px;
-    font-weight:700;
-    font-size:11px;
-    color:#3b4a6b;
-    opacity:.55;
-    pointer-events:none;
-  }
-
-  .tp-hud{
-    position:relative;
-    width:100%;
-    margin:0 0 6px 0;
-    padding:0;
-    background:var(--tp-hud-bg);
-    border:1px solid var(--tp-hud-brd);
-    border-radius:10px;
-    box-shadow:0 14px 32px rgba(8,16,40,.12);
-    display:flex;
-    flex-direction:column;
-    min-height:var(--tp-hud-h);
-    overflow:hidden;
-  }
-
-  .tp-pl{
-    min-height:89px;
-    background:linear-gradient(180deg,#fff 0%,#fff 60%,#f1f8ff 100%);
-  }
-
-  .tp-watch,
-  .tp-active{
-    min-height:144px;
-    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
-  }
+  /* HUD shells */
+  .tp-hud{ position:absolute; left:6px; right:6px; border-radius:12px; border:1px solid rgba(10,20,40,.12); overflow:hidden; background:#fff; }
+  .tp-pl    { top:  6px; height: 89px; background:linear-gradient(180deg,#dceeff 0%, #cbe0fa 100%); }
+  .tp-watch { top: 97px; height:144px; background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%); }
+  .tp-active{ top:245px; height:144px; background:linear-gradient(180deg,#f5f3ff 0%, #ece9ff 100%); }
+  .tp-info  { top:393px; height: 34px; display:flex; align-items:center; justify-content:center;
+              background:rgba(255,255,255,.78); }
 
   .tp-hdr{
-    flex:0 0 var(--tp-hdr-h);
-    display:flex;
-    align-items:center;
-    padding:0 8px;
-    font-size:11px;
-    font-weight:800;
-    color:#33415e;
-    background:rgba(255,255,255,.78);
-    border-bottom:1px solid rgba(10,20,40,.10);
+    height:24px; display:flex; align-items:center; justify-content:flex-start;
+    gap:6px; padding:0 8px; font-weight:800; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.72); border-bottom:1px solid rgba(10,20,40,.10);
   }
+  .tp-ico-btn{
+    margin-left:auto; width:13px; height:13px; min-width:13px; min-height:13px;
+    border-radius:4px; border:1px solid rgba(10,20,40,.18); background:#fff; font-size:10px;
+    display:flex; align-items:center; justify-content:center; line-height:11px; cursor:pointer;
+  }
+  .tp-pl-body{ padding:8px; font-weight:800; color:#1b2a4a; }
 
-  .tp-pl-body{
-    flex:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:800;
-    font-size:16px;
-    color:#1b2a4a;
-    white-space:pre-line;
-    text-align:center;
-  }
-
-  .tp-list{
-    flex:1;
-    padding:6px;
-    overflow:auto;
-    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
-  }
-
-  /* Row layout:
-     left col: symbol + chips
-     right col: LED/status bubble  */
-  .tp-row-item{
-    display:grid;
-    grid-template-columns:1fr auto;
-    align-items:flex-start;
-    justify-content:space-between;
-    column-gap:8px;
-    row-gap:2px;
-    background:rgba(255,255,255,.6);
-    border:1px solid rgba(10,20,40,.12);
-    border-radius:8px;
-    padding:4px 6px;
-    margin-bottom:4px;
-    box-shadow:0 10px 16px rgba(0,0,0,.07);
-    cursor:pointer;
-  }
-
-  .tp-left{
-    display:flex;
-    flex-direction:column;
-    min-width:0;
-  }
-
-  .tp-sym{
-    font-size:12px;
-    font-weight:800;
-    color:#1b2a4a;
-  }
-
-  .tp-mini{
-    display:flex;
-    flex-wrap:wrap;
-    gap:4px;
-  }
-
-  .tp-chip{
-    border:1px solid rgba(10,20,40,.12);
-    border-radius:999px;
-    padding:2px 6px;
-    font-weight:800;
-    font-size:10px;
-    background:#f8fafc;
-    color:#33415e;
-  }
-
-  /* LED bubble in Active rows */
-  .tp-led{
-    width:8px;
-    height:8px;
-    border-radius:999px;
-    box-shadow:0 0 3px rgba(0,0,0,.6);
-  }
-
-  .tp-led--idle{
-    background:#6b7280;          /* gray / neutral */
-  }
-  .tp-led--pending{
-    background:#fde047;          /* yellow */
-    box-shadow:0 0 6px rgba(250,204,21,.9), 0 0 2px rgba(0,0,0,.4) inset;
-    animation:tp-pulse .6s infinite alternate;
-  }
-  .tp-led--ok{
-    background:#10b981;          /* green */
-    box-shadow:0 0 6px rgba(16,185,129,.9), 0 0 2px rgba(0,0,0,.4) inset;
-  }
-  .tp-led--fail{
-    background:#ef4444;          /* red */
-    box-shadow:0 0 6px rgba(239,68,68,.9), 0 0 2px rgba(0,0,0,.4) inset;
-  }
-
-  @keyframes tp-pulse{
-    0%   { opacity:.5; }
-    100% { opacity:1; }
-  }
-
-  /* Bottom control cluster */
+  .tp-list{ height:calc(100% - 24px); padding:6px; overflow:auto; }
   .tp-row{
-    position:absolute;
-    bottom:6px;
-    left:6px;
-    right:6px;
-    display:flex;
-    flex-wrap:wrap;
-    align-content:flex-start;
-    gap:6px;
-    justify-content:flex-start;
-    align-items:flex-start;
-    height:auto;
+    display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center;
+    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
+    border:1px solid rgba(10,20,40,.12); font-weight:800; color:#1b2a4a;
   }
+  .tp-row .tf{ font-size:10px; font-weight:800; opacity:.8; padding:2px 6px; border-radius:999px; border:1px solid rgba(10,20,40,.12); }
+  .tp-row .sym{ font-weight:900; }
+  .tp-row .rm{ width:18px; height:18px; border-radius:6px; border:1px solid rgba(10,20,40,.14); background:#f8fafc; font-weight:800; cursor:pointer; }
 
+  /* Info banner scrolling */
+  .tp-info-marquee{ width:100%; padding:0 8px; font-weight:800; color:#33415e; white-space:nowrap; overflow:hidden; }
+  .tp-info-marquee{ animation: tp-marq 16s linear infinite; }
+  @keyframes tp-marq{ from{ transform:translateX(0);} to{ transform:translateX(-100%);} }
+
+  /* Bottom toolbar (34px tall), pinned */
+  .tp-toolbar{
+    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; align-items:center; justify-content:space-between;
+    background:#fff; border:1px solid rgba(10,20,40,.14); border-radius:10px; padding:0 6px;
+  }
   .tp-btn{
-    width:55px;
-    height:34px;
-    border-radius:10px;
-    border:1px solid rgba(10,20,40,.14);
-    background:rgba(255,255,255,.95);
-    box-shadow:0 13px 21px rgba(8,16,40,.18);
-    font-weight:800;
-    font-size:11px;
-    color:#1b2a4a;
-    line-height:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:0 6px;
-    cursor:pointer;
-    text-shadow:0 1px 0 rgba(255,255,255,.6);
-  }
-
-  .tp-btn-ks{
-    background:radial-gradient(circle at 30% 30%, #fff 0%, #fee2e2 40%, #fecaca 100%);
-    border-color:#dc2626;
-    color:#7a0a0a;
-  }
-
-  .tp-btn--buy{
-    border-color:#16a34a;
-    color:#065f46;
-  }
-
-  .tp-btn--sell{
-    border-color:#dc2626;
-    color:#7a0a0a;
-  }
-
-  /* AUTO button states */
-  .tp-auto-led{
-    display:inline-block;
-    width:6px;
-    height:6px;
-    border-radius:999px;
-    margin-left:4px;
-    box-shadow:0 0 2px rgba(0,0,0,.4);
-  }
-
-  /* AUTO off */
-  .tp-auto-off{
-    opacity:.75;
-  }
-  .tp-auto-off .tp-auto-led{
-    background:#4b5563; /* gray */
-    box-shadow:0 0 4px rgba(75,85,99,.8);
-  }
-
-  /* AUTO on / armed */
-  .tp-auto-armed{
-    border-color:#059669;
-    color:#065f46;
-    background:radial-gradient(circle at 30% 30%, #fff 0%, #d1fae5 40%, #a7f3d0 100%);
-  }
-
-  .tp-auto-armed .tp-auto-led{
-    background:#16a34a;
-    box-shadow:0 0 6px rgba(16,185,129,.9);
+    width:34px; height:34px; min-width:34px; min-height:34px; cursor:pointer;
+    border-radius:10px; border:1px solid rgba(10,20,40,.14); background:rgba(255,255,255,.95);
+    box-shadow:0 13px 21px rgba(8,16,40,.18); font-weight:800; display:flex; align-items:center; justify-content:center;
   }
 </style>
 
@@ -331,530 +110,291 @@
 (()=>{
   const ROOT = document.getElementById('cycla-trades-widget');
 
-  // ------------------ CYCLA namespace prep ------------------
-  window.CYCLA ??= {};
+  // ───────────────────────── config ─────────────────────────
+  // IMPORTANT: If this page is served over HTTPS, RELAY_BASE must also be HTTPS.
+  // e.g., "https://spectra-relay.onrender.com"
+  const RELAY_BASE    = (window.CYCLA && window.CYCLA.RELAY_BASE) || "https://spectra-trade-bot.onrender.com";
+  const STEP_SECONDS  = 5;
+  const BUY_QTY_MODE  = "notional";
+  const NOTIONAL_USD  = 3; // your value
+  const POLL_MS       = 1500;
+
+  // ───────────────────────── shared bus ─────────────────────
+  window.CYCLA = window.CYCLA || {};
   window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 
-  // MUST be HTTPS if your site is HTTPS, otherwise the browser blocks it.
-  window.CYCLA.RELAY  = window.CYCLA.RELAY  || "https://spectra-trade-bot.onrender.com";
-  // Optional daemon endpoint (leave undefined if you don't use it)
-  window.CYCLA.DAEMON = window.CYCLA.DAEMON || undefined;
+  // ───────────────────────── DOM refs ───────────────────────
+  const PL_BOX   = document.getElementById('tp-pl-body');
+  const W_LIST   = document.getElementById('tp-watch-list');
+  const A_LIST   = document.getElementById('tp-active-list');
+  const INFO_BNR = document.getElementById('tp-info-banner');
 
-  // Live readers (no stale snapshots)
-  const RELAY  = () => window?.CYCLA?.RELAY;
-  const DAEMON = () => window?.CYCLA?.DAEMON;
+  const BTN_AUTO = document.getElementById('tp-auto');
+  const BTN_BUY  = document.getElementById('tp-buy');
+  const BTN_SELL = document.getElementById('tp-sell');
+  const BTN_KS   = document.getElementById('tp-ks');
+  const BTN_WCLR = document.getElementById('tp-watch-clear');
 
-  // ECU dispatcher (unchanged signature; richer messages)
-  function ecu(level='ok', msg=''){
-    try{
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail:{ level, msg } }));
-    }catch(_){}
-  }
-  ecu('ok','Trades widget ready.');
+  // ───────────────────────── local state ─────────────────────
+  let AUTO = false;
+  const watch  = new Map();
+  const active = new Map();
 
-  // Simple store of last faults per symbol for quick introspection
-  (window.CYCLA.lastFaults ||= new Map());
-  // Handy inspector in console: CYCLA.fault('BTCUSD')
-  window.CYCLA.fault = (s) => window.CYCLA.lastFaults.get(String(s||'').toUpperCase().replace(/[\/\-\s]/g,'')) || null;
+  let chartSymbolUI = "BTCUSD";
+  let chartTF = "1m";
+  let lastChartPrice = null;
 
-  // ---------- Helpers to make failures explicit and actionable ----------
-  function firstStr(...candidates){
-    for (const c of candidates){
-      if (typeof c === 'string' && c.trim()) return c.trim();
-    }
-    return '';
-  }
+  const sameOrigin = (() => {
+    try { return new URL(RELAY_BASE, location.href).origin === location.origin; }
+    catch { return false; }
+  })();
 
-  function pickCode(json, http){
-    const action = json?.result?.action || json?.backend_status || '';
-    const eType  = json?.type || json?.error?.type || '';
-    const eMsg   = firstStr(
-      json?.error,
-      json?.message,
-      json?.result?.error,
-      json?.errors?.[0]?.message,
-      json?.detail
-    ).toLowerCase();
+  // If you don't need cookies, omit credentials to simplify CORS.
+  const COMMON_FETCH = { mode: sameOrigin ? 'same-origin' : 'cors', credentials: 'omit' };
 
-    if (http === 408 || /timeout/.test(eMsg) || /no[_\s-]?fill/.test(eMsg)) return 'TIMEOUT';
-    if (/killswitch/.test(eMsg) || /ks/.test(eMsg)) return 'KILLSWITCH';
-    if (/insufficient/.test(eMsg) && /funds|balance/.test(eMsg)) return 'INSUFFICIENT_FUNDS';
-    if (/min[_\s-]?size/.test(eMsg) || /minimum/.test(eMsg)) return 'MIN_SIZE';
-    if (/min[_\s-]?notional/.test(eMsg)) return 'MIN_NOTIONAL';
-    if (/dust/.test(eMsg) || /too small/.test(eMsg)) return 'DUST_TOO_SMALL';
-    if (/precision/.test(eMsg) || /step/.test(eMsg)) return 'PRECISION';
-    if (/symbol/.test(eMsg) || /product/.test(eMsg) || /pair/.test(eMsg)) return 'INVALID_PRODUCT';
-    if (/auth/.test(eMsg) || http === 401 || http === 403) return 'AUTH';
-    if (eType === 'validation_error') return 'VALIDATION';
-    if (/network/.test(eMsg) || http === 0) return 'NET_ERR';
-    if (/cancel/.test(eMsg)) return 'CANCELLED';
-    if (/rejected/.test(eMsg)) return 'REJECTED';
-    if (action && /filled/.test(action)) return 'FILLED';
-    return http >= 500 ? 'SERVER' : 'UNKNOWN';
-  }
-
-  function buildHint(code, ctx){
-    const { qty, minSize, usd, px, product, tf, http } = ctx || {};
-    switch(code){
-      case 'MIN_SIZE':
-        return minSize
-          ? `Size ${qty} < min ${minSize}. Increase ORDER_USD (now $${usd}) or round up qty.`
-          : `Size below venue minimum. Increase ORDER_USD or qty.`;
-      case 'DUST_TOO_SMALL':
-        return `Position too tiny to close fully. Try SELL ALL via market remainder or aggregate first.`;
-      case 'INSUFFICIENT_FUNDS':
-        return `Not enough ${product?.endsWith('-USD') ? 'USD' : 'balance'} for ${qty} @ ${px}. Lower qty or top up.`;
-      case 'PRECISION':
-        return `Round price/size to venue step. (We already floor qty to 1e-6; check price tick.)`;
-      case 'INVALID_PRODUCT':
-        return `Bad product_id. Ensure hyphenated pair (e.g., BTC-USD) and that venue supports it.`;
-      case 'KILLSWITCH':
-        return `KS is active. Click KS to reset then retry.`;
-      case 'AUTH':
-        return `Auth failed (HTTP ${http}). Verify API key + signing + permissions.`;
-      case 'TIMEOUT':
-        return `No fill within window. Widen price or increase seconds.`;
-      case 'VALIDATION':
-        return `Relay refused params. Check symbol/side/price/size.`;
-      case 'NET_ERR':
-        return `Network hiccup. Check RELAY URL and CORS/proxy.`;
-      case 'SERVER':
-        return `Venue/relay error. Retry or check logs.`;
-      default:
-        return `See backend_status/error for details.`;
-    }
-  }
-
-  // Extended status grading: returns {status, tag}
-  window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderResponse(json){
-    const act    = json?.result?.action || '';
-    const filled = Number(json?.result?.filled ?? 0);
-    if (filled > 0 || /filled/.test(act) || act === 'sell_timeout_market_remainder'){
-      return { status:'ok', tag: act || 'filled' };
-    }
-    return { status:'fail', tag: act || (json?.type || json?.result?.error || 'fail') };
+  const uiToRelay = (s) => {
+    const S = String(s||"").trim().toUpperCase();
+    if (!S) return "";
+    return S.includes("-") ? S : (S.endsWith("USD") ? (S.slice(0,-3) + "-USD") : S.replace("/", "-"));
   };
+  const prettyUsd = (n) => (Number.isFinite(n) ? `$${n.toLocaleString(undefined,{maximumFractionDigits:2})}` : "—");
 
-  // per-symbol TF freeze map (AUTO gating uses this; chart also keeps this synced)
-  (window.CYCLA.tfBySymbol ||= Object.create(null));
-
-  // ------------------ Element refs ------------------
-  const WATCH      = ROOT.querySelector('#tp-watch');
-  const ACTIVE     = ROOT.querySelector('#tp-active');
-  const BTN_AUTO   = ROOT.querySelector('#tp-auto-btn');
-  const BTN_KS     = ROOT.querySelector('#tp-ks');
-  const BTN_BUY    = ROOT.querySelector('#tp-buy-btn');
-  const BTN_SELL   = ROOT.querySelector('#tp-sell-btn');
-  const PL_BOX     = ROOT.querySelector('#tp-pl-body');
-
-  // ------------------ Local UI state ------------------
-  const watchSet     = new Set();
-  const activeSet    = new Set();
-  const statusBySym  = new Map();
-
-  window.CYCLA.ORDER_USD ??= 3;
-  window.AUTO = false;
-
-  // ------------------ Helpers shared with manual trade ------------------
-  function uiNormalize(sym){
-    return String(sym||'').toUpperCase().replace(/[\/\-\s]/g,'');
-  }
-  function toProductId(sym){
-    const s = String(sym||'').toUpperCase().replace(/\s+/g,'').replace(/\//g,'-');
-    if (s.includes('-')) return s;
-    const QUOTES = ['USDC','USD','EUR','GBP'];
-    for (const q of QUOTES){
-      if (s.endsWith(q) && s.length > q.length) return s.slice(0, -q.length) + '-' + q;
-    }
-    return s;
-  }
-  function isCoinbaseProduct(id){
-    const m = String(id||'').toUpperCase().match(/^([A-Z0-9]+)-(USD|USDC|EUR|GBP)$/);
-    if (!m) return false;
-    return /[A-Z]/.test(m[1]);
-  }
-  function decimals(x){ const s=String(x), i=s.indexOf('.'); return i<0?0:s.length-i-1; }
-  function roundToStep(v, step, mode='round'){
-    const n = Math.max(0, decimals(step));
-    const k = v / step;
-    const r = mode === 'floor' ? Math.floor(k) : mode === 'ceil' ? Math.ceil(k) : Math.round(k);
-    return +(r * step).toFixed(n);
-  }
-  // PATCH: finer ticks for sub-$1 quotes
-  function priceStepFor(quote, p){
-    const q = String(quote||'').toUpperCase();
-    if (q==='USD' || q==='USDC' || q==='EUR' || q==='GBP'){
-      if (p >= 1)   return 0.01;
-      if (p >= 0.1) return 0.001;
-      if (p >= 0.01) return 0.0001;
-      return 0.00001;
-    }
-    return 0.00000001;
-  }
-  const BASE_SIZE_STEP = 0.000001;
-
-  // ------------------ LED helpers (unchanged) ------------------
-  function applyStatusToRow(row, sym){
-    if (!row) return;
-    const left = row.querySelector('.tp-left .tp-sym');
-    if (left) left.textContent = sym;
-    const led = row.querySelector('.tp-led'); if (!led) return;
-    const st = statusBySym.get(sym) || 'idle';
-    led.classList.remove('tp-led--idle','tp-led--pending','tp-led--ok','tp-led--fail');
-    if (st === 'pending') led.classList.add('tp-led--pending');
-    else if (st === 'ok') led.classList.add('tp-led--ok');
-    else if (st === 'fail') led.classList.add('tp-led--fail');
-    else led.classList.add('tp-led--idle');
-    row.setAttribute('aria-label', `${sym} — ${st}`);
-  }
-  function updateActiveRowLED(sym){
-    const row = ACTIVE.querySelector(`.tp-row-item[data-sym="${sym}"]`);
-    if (row) applyStatusToRow(row, sym);
+  function ecu(level='ok', code='TW-OK-100', msg=''){
+    INFO_BNR.textContent = `ECU ${level.toUpperCase()}: [${code}] ${msg}`;
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail: { level, msg: `[${code}] ${msg}` }}));
   }
 
-  // ------------------ Row builders & renders (unchanged) ------------------
-  function makeRow(sym, where){
+  function rowFor({ sym, tf }, canRemove=true){
     const row = document.createElement('div');
-    row.className = 'tp-row-item';
-    row.setAttribute('role','listitem');
-    row.dataset.sym = sym;
-    row.tabIndex = 0;
-    const left = document.createElement('div'); left.className = 'tp-left';
-    const name = document.createElement('div'); name.className = 'tp-sym'; name.textContent = sym; left.appendChild(name);
-    const mini = document.createElement('div'); mini.className = 'tp-mini';
-    const chip = document.createElement('div'); chip.className = 'tp-chip'; chip.textContent = where; mini.appendChild(chip);
-    left.appendChild(mini);
-    let right = document.createElement('div');
-    if (where === 'Active'){ const led = document.createElement('div'); led.className = 'tp-led tp-led--idle'; led.setAttribute('aria-hidden','true'); right.appendChild(led); }
+    row.className = 'tp-row';
+    const left = document.createElement('div');
+    const right = document.createElement('div');
+    const symEl = document.createElement('span'); symEl.className='sym'; symEl.textContent = sym;
+    const tfEl  = document.createElement('span'); tfEl.className='tf';  tfEl.textContent  = tf;
+    left.appendChild(symEl); left.appendChild(document.createTextNode(' ')); left.appendChild(tfEl);
+    if (canRemove){
+      const rm = document.createElement('button');
+      rm.className = 'rm'; rm.title = 'Remove'; rm.textContent = '–';
+      rm.addEventListener('click', ()=>{ watch.delete(sym); renderWatch(); ecu('warn','TW-WARN-210',`Removed ${sym} from Watchlist.`); });
+      right.appendChild(rm);
+    }
     row.appendChild(left); row.appendChild(right);
-    function loadSym(){ window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', { detail:{ symbol: sym } })); }
-    row.addEventListener('click', loadSym);
-    row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadSym(); }});
-    if (where === 'Active') applyStatusToRow(row, sym);
     return row;
   }
-  function renderList(container, set, where){
-    container.innerHTML = '';
-    for(const sym of set){ container.appendChild(makeRow(sym, where)); }
+  function renderWatch(){ W_LIST.innerHTML = ''; for(const v of watch.values()) W_LIST.appendChild(rowFor(v,true)); }
+  function renderActive(){ A_LIST.innerHTML = ''; for(const v of active.values()) A_LIST.appendChild(rowFor(v,false)); }
+
+  // ───────────────────────── chart wiring ────────────────────
+  window.CYCLA.bus.addEventListener('cycla:chart:context', (e)=>{
+    const d = (e && e.detail) || {};
+    if (d.symbol) chartSymbolUI = String(d.symbol).toUpperCase().replace(/[^\w-]/g,'');
+    if (d.tf) chartTF = String(d.tf);
+    if (Number.isFinite(Number(d.last))) lastChartPrice = Number(d.last);
+  });
+  window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+    const { symbol='', tf='1m' } = (e && e.detail) || {};
+    if (!symbol) { ecu('err','TW-ERR-400','Empty symbol from chart.'); return; }
+    const sym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
+    watch.set(sym, { sym, tf }); renderWatch();
+    ecu('ok','TW-OK-102', `Added ${sym} (${tf}) to Watchlist.`);
+  });
+
+  // ───────────────────────── relay I/O ───────────────────────
+  async function jget(path){
+    const url = `${RELAY_BASE}${path}`;
+    let r;
+    try {
+      r = await fetch(url, { ...COMMON_FETCH, method:'GET', headers:{ 'Accept':'application/json' } });
+    } catch (e) {
+      throw netFail(url, e);
+    }
+    if (!r.ok) throw httpFail(url, r);
+    return r.json();
+  }
+  async function jpost(path, body){
+    const url = `${RELAY_BASE}${path}`;
+    let r, j;
+    try {
+      r = await fetch(url, {
+        ...COMMON_FETCH,
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+        body: JSON.stringify(body)
+      });
+      j = await r.json().catch(()=> ({}));
+    } catch (e) {
+      throw netFail(url, e);
+    }
+    if (!r.ok) throw new Error(`${j.error || j.backend_status || r.statusText || ('HTTP '+r.status)}`);
+    return j;
+  }
+  function netFail(url, err){
+    const httpsPage = location.protocol === 'https:';
+    const httpRelay = /^http:/.test(url);
+    if (httpsPage && httpRelay) return new Error('mixed_content: Page is HTTPS but RELAY_BASE is HTTP. Use HTTPS relay.');
+    return new Error(`network_error: ${err && err.message ? err.message : 'fetch failed'}`);
+  }
+  function httpFail(url, r){
+    // If it’s a 404/405 on POST, it’s almost certainly wrong path or CORS preflight blocked server.
+    if (r.status === 404) return new Error('path_not_found: check /order, /status routes.');
+    if (r.status === 405) return new Error('method_not_allowed: server not accepting POST (or OPTIONS).');
+    return new Error(`HTTP_${r.status}: ${r.statusText}`);
   }
 
-  // ------------------ AUTO / daemon sync (getter-based endpoints) ------------------
-  async function syncDaemonAuto(enable){
-    const DAEMON_BASE = DAEMON();
-    if (!DAEMON_BASE){ ecu('warn','Daemon endpoint missing; UI-only AUTO.'); return; }
+  async function resolvePxFor(side, relaySym, qtyHint){
+    if (Number.isFinite(lastChartPrice) && lastChartPrice > 0) return lastChartPrice;
+    const q = qtyHint && Number.isFinite(Number(qtyHint)) ? `&qty=${encodeURIComponent(qtyHint)}` : '';
+    const book = await jget(`/dbg/book?symbol=${encodeURIComponent(relaySym)}${q}`);
+    const px = side === 'BUY' ? Number(book.est_ask_for_qty || book.ask) : Number(book.est_bid_for_qty || book.bid);
+    if (!Number.isFinite(px) || px <= 0) throw new Error('price_unavailable');
+    return px;
+  }
+
+  async function resolveBuyQtyFromNotional(relaySym, notionalUsd){
+    const dbg = await jget(`/dbg/holdings?symbol=${encodeURIComponent(relaySym)}`);
+    const step = Number(dbg.min_qty || 0);
+    if (!Number.isFinite(step) || step <= 0) throw new Error('min_qty_unavailable');
+
+    let ask = NaN;
     try{
-      const itemsArr = [];
-      if (enable){
-        for (const sym of activeSet){
-          const tfSel = (window.CYCLA.tfBySymbol?.[sym] || String(window?.CYCLA?.currentTF || '1m').toUpperCase());
-          itemsArr.push({ symbol: sym, tf: tfSel });
-        }
-      }
-      const body = { enabled: !!enable, orderUsd: Number(window?.CYCLA?.ORDER_USD ?? 3), items: itemsArr };
-      const r = await fetch(`${DAEMON_BASE}/auto`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-      if (r.ok){ ecu('ok', enable ? `AUTO armed on daemon • items=${itemsArr.length}` : 'AUTO stopped on daemon'); }
-      else { ecu('err', `Daemon sync failed: HTTP ${r.status}`); }
-    }catch(err){ ecu('err', `Daemon sync error: ${err.message||err}`); }
+      const b = await jget(`/dbg/book?symbol=${encodeURIComponent(relaySym)}`);
+      ask = Number(b.est_ask_for_qty || b.ask || NaN);
+    }catch{}
+    if (!Number.isFinite(ask) || ask <= 0) {
+      if (Number.isFinite(lastChartPrice) && lastChartPrice > 0) ask = lastChartPrice;
+      else throw new Error('ask_unavailable');
+    }
+
+    const rawQ = notionalUsd / ask;
+    let steps = Math.floor(rawQ / step);
+    if (steps < 1) steps = 1;
+    const qty = Number((steps * step).toFixed(12));
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty_computation_failed');
+    return qty;
   }
 
-  // ------------------ AUTO button wiring (unchanged behavior) ------------------
-  function updateAutoVisual(){
-    if (window.AUTO){
-      BTN_AUTO.setAttribute('aria-pressed', 'true');
-      BTN_AUTO.dataset.state = 'on';
-      BTN_AUTO.classList.add('tp-auto-armed');
-      BTN_AUTO.classList.remove('tp-auto-off');
-    } else {
-      BTN_AUTO.setAttribute('aria-pressed', 'false');
-      BTN_AUTO.dataset.state = 'off';
-      BTN_AUTO.classList.remove('tp-auto-armed');
-      BTN_AUTO.classList.add('tp-auto-off');
-    }
+  async function resolveBuyQtyMin(relaySym){
+    const dbg = await jget(`/dbg/holdings?symbol=${encodeURIComponent(relaySym)}`);
+    const min = Number(dbg.min_qty || 0);
+    if (!Number.isFinite(min) || min <= 0) throw new Error('min_qty_unavailable');
+    return min;
   }
-  BTN_AUTO.addEventListener('click', async ()=>{
-    window.AUTO = !window.AUTO;
-    if (window.AUTO){
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
-      window.CYCLA.ORDER_USD = 3;
-      if (watchSet.size){
-        for (const s of watchSet){ activeSet.add(s); if (!statusBySym.has(s)) statusBySym.set(s, 'idle'); }
-        watchSet.clear(); renderList(WATCH, watchSet, 'Watch'); renderList(ACTIVE, activeSet, 'Active');
-      }
-      ecu('ok', `AUTO armed • active=${activeSet.size}`);
-    } else {
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-      ecu('warn','AUTO off');
-    }
-    updateAutoVisual();
-    await syncDaemonAuto(window.AUTO);
-  });
-  window.CYCLA.bus.addEventListener('cycla:auto:stop', ()=>{
-    window.AUTO = false; updateAutoVisual();
-  });
 
-  // ------------------ KS button wiring (uses live RELAY()) ------------------
-  BTN_KS.addEventListener('click', async ()=>{
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:trades:clear'));
-    window.AUTO = false; updateAutoVisual();
-    ecu('err','Killswitch fired — AUTO off; relay notified');
-    const R = RELAY();
-    if (R){ try { await fetch(`${R}/killswitch`, { method:'POST' }); } catch(_){/* silence */} }
-  });
-  updateAutoVisual();
+  async function placeOrder({ uiSym, side }){
+    const relaySym = uiToRelay(uiSym);
+    if (!relaySym) throw new Error('bad_symbol');
 
-  // ------------------ P/L HUD + ledger (unchanged) ------------------
-  const fmtUSD = (n)=> Number(n||0).toLocaleString('en-US',{ minimumFractionDigits:2, maximumFractionDigits:2 });
-  function feeRate(){ const F = window?.CYCLA?.FEE || {}; const book = F[F.venue || 'spot'] || { maker:0, taker:0 }; const mode = F.mode || 'taker'; return Number(book[mode] ?? 0); }
-  function sizeForPrice(p){ const usd=Number(window?.CYCLA?.ORDER_USD ?? 3), step=0.000001, raw=usd/p; const sized=Math.floor(raw/step)*step; return Math.max(0, +sized.toFixed(6)); }
-  const ledger = { open:new Map(), closed:[], totals:{ buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 } };
-  window.CYCLA.ledger = ledger;
-  window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
-    const normSym = String(symUI||'').toUpperCase().replace(/[\/\-\s]/g,'');
-    if (side === 'SELL' && window.CYCLA.ledger?.open?.has(normSym)){
-      const pos = window.CYCLA.ledger.open.get(normSym); if (pos && pos.qty > 0) return pos.qty;
-    }
-    const usd=Number(window?.CYCLA?.ORDER_USD ?? 3), step=0.000001, raw=usd/px; const sized=Math.floor(raw/step)*step; return Math.max(0, +sized.toFixed(6));
-  };
-  const lastPrice = new Map();
-  function renderPLFromTotals(){
-    const t = ledger.totals, mode=(window?.CYCLA?.FEE?.mode||'taker'), venue=(window?.CYCLA?.FEE?.venue||'spot');
-    let text = `Buys: ${t.buys}   Sells: ${t.sells}\n` + `Realized: $${fmtUSD(t.net)}   (Gross $${fmtUSD(t.gross)} • Fees $${fmtUSD(t.fees)})\n`;
-    const u = (function(){
-      const fr = feeRate(); let uGross=0,uFees=0;
-      for (const [sym,o] of ledger.open){ const p=lastPrice.get(sym); if (!Number.isFinite(p)) continue;
-        const buyUsd=o.qty*o.price, closeUsd=o.qty*p; uGross += (closeUsd-buyUsd); uFees += buyUsd*fr + closeUsd*fr; }
-      return { uNet: uGross-uFees };
-    })();
-    if (Number.isFinite(u.uNet) && (ledger.open.size > 0)){ text += `Unrealized: $${fmtUSD(u.uNet)}   Open: ${ledger.open.size} pos`; }
-    text += `\nFee: ${mode} @ ${venue}`; PL_BOX.textContent = text;
-  }
-  const _legSeen = new Map();
-  function _legKey(d){ return `${d.symbol}|${d.side}|${d.time}|${+d.price}|${+d.qty}`; }
-  function rememberLegOnce(d, ttlMs=5*60*1000){
-    const now = Date.now(); for (const [k,until] of _legSeen){ if (until <= now) _legSeen.delete(k); }
-    const key = _legKey(d); if (_legSeen.has(key)) return false; _legSeen.set(key, now+ttlMs); return true;
-  }
-  function addLeg({ symbol, side, price, qty, time }){
-    const sym = uiNormalize(symbol); const q=Number(qty || sizeForPrice(Number(price))); const px=Number(price);
-    if (!sym || !Number.isFinite(px) || !Number.isFinite(q) || q<=0) return;
-    if (!rememberLegOnce({symbol:sym, side, price:px, qty:q, time})) return;
+    let size;
     if (side === 'BUY'){
-      const o = ledger.open.get(sym);
-      if (o){ const newQty=+(o.qty+q).toFixed(6); const newPx=+((o.qty*o.price + q*px)/newQty).toFixed(8); ledger.open.set(sym,{ price:newPx, qty:newQty, time: o.time ?? time }); }
-      else { ledger.open.set(sym,{ price:px, qty:q, time }); }
-      ledger.totals.buys += 1; lastPrice.set(sym, px);
-    } else if (side === 'SELL'){
-      ledger.totals.sells += 1; const o = ledger.open.get(sym);
-      if (o){ const fr=feeRate(), closeQty=Math.min(o.qty,q), buyUsd=closeQty*o.price, sellUsd=closeQty*px, fees=buyUsd*fr + sellUsd*fr, gross=sellUsd-buyUsd, net=gross-fees;
-        ledger.closed.push({ symbol:sym, buy:{...o, qty:closeQty}, sell:{ price:px, qty:closeQty, time }, gross, fees, net });
-        ledger.totals.gross += gross; ledger.totals.fees += fees; ledger.totals.net += net; if (net>=0) ledger.totals.wins += 1; else ledger.totals.losses += 1;
-        o.qty = +(o.qty - closeQty).toFixed(6); if (o.qty <= 0) ledger.open.delete(sym); else ledger.open.set(sym, o);
-      }
+      size = (BUY_QTY_MODE === 'notional')
+        ? await resolveBuyQtyFromNotional(relaySym, NOTIONAL_USD)
+        : await resolveBuyQtyMin(relaySym);
+    } else {
+      size = "ALL";
     }
-    renderPLFromTotals();
+
+    const px = await resolvePxFor(side, relaySym, (side==='BUY'?size:undefined));
+    const payload = { symbol: relaySym, side, price: px, size, seconds: STEP_SECONDS };
+
+    const res = await jpost('/order', payload);
+    const act = String(res?.backend_status || res?.result?.action || '');
+    const filled = Number(res?.result?.filled || 0);
+    const avgPx  = Number(res?.result?.avg_price || px);
+
+    const key = uiSym.toUpperCase().replace(/[^\w]/g,'');
+    if (!active.has(key)) { active.set(key, { sym:key, tf:chartTF }); renderActive(); }
+
+    ecu(res.ok ? 'ok' : 'err', res.ok ? 'TW-OK-120' : 'TW-ERR-420',
+        `${side} ${relaySym} • ${act} • qty=${filled || size} @ ~${avgPx}`);
+
+    await refreshHudOnce(relaySym).catch(()=>{});
   }
 
-  // ------------------ Manual order executor (ENHANCED ECU + URL/mixed-content checks + timeout) ------------------
-  async function manualOrder(side){
-    const symUI  = uiNormalize(window?.CYCLA?.symbolNow?.() || '');
-    const tf     = String(window?.CYCLA?.currentTF || '1m').toUpperCase();
-    const pxRaw  = Number(window?.CYCLA?.priceNow?.() ?? NaN);
-    const barT   = Number(window?.CYCLA?.timeNow?.() ?? Math.floor(Date.now()/1000));
+  // ───────────────────────── HUD ─────────────────────────────
+  async function refreshHudOnce(relaySym){
+    const sym = relaySym || uiToRelay(chartSymbolUI);
 
-    if (!symUI || !Number.isFinite(pxRaw) || pxRaw <= 0){
-      ecu('err','Manual order aborted — missing symbol/price from chart');
-      return;
-    }
-
-    const product_id = toProductId(symUI);
-    if (!isCoinbaseProduct(product_id)){
-      const msg = `Invalid product: ${product_id}`;
-      window.CYCLA.lastFaults.set(symUI, { code:'INVALID_PRODUCT', msg, tf });
-      ecu('err', `${symUI} FAIL • INVALID_PRODUCT • ${msg}`);
-      return;
-    }
-
-    const [, quote] = product_id.split('-');
-    const pStep     = priceStepFor(quote, pxRaw);
-    const limitPx   = (side === 'SELL') ? roundToStep(pxRaw, pStep, 'ceil') : roundToStep(pxRaw, pStep, 'floor');
-
-    const rawQty     = window.CYCLA.chooseQtyForSidePx(symUI, side, limitPx);
-    const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
-
-    if (!Number.isFinite(limitPx) || limitPx <= 0 || !Number.isFinite(qtyRounded) || qtyRounded <= 0){
-      const msg = 'Rounded px/qty invalid'; window.CYCLA.lastFaults.set(symUI, { code:'PRECISION', msg, tf });
-      ecu('err', `${symUI} FAIL • PRECISION • ${msg}`);
-      return;
-    }
-
-    // Freeze TF
-    window.CYCLA.tfBySymbol[symUI] = tf;
-    ecu('ok', `TF freeze ${symUI} → ${tf}`);
-
-    statusBySym.set(symUI, 'pending');
-    if (!activeSet.has(symUI)){ activeSet.add(symUI); renderList(ACTIVE, activeSet, 'Active'); }
-    updateActiveRowLED(symUI);
-
-    const body = {
-      symbol: product_id,
-      side,
-      price: limitPx,
-      size:  qtyRounded,
-      seconds: 60,
-      client_order_id: `${symUI}-${tf}-${barT}-${side}-manual`
-    };
-
-    ecu('ok', `Queued ${side} ${symUI} @ ${limitPx} x ${qtyRounded}`);
-
-    const R = RELAY();
-    if (!R){
-      const msg = 'RELAY URL missing — set window.CYCLA.RELAY';
-      window.CYCLA.lastFaults.set(symUI, { code:'NET_ERR', msg, tf });
-      ecu('err', `${symUI} FAIL • NET_ERR • ${msg}`);
-      statusBySym.set(symUI, 'fail'); updateActiveRowLED(symUI);
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', { detail:{ symbol:symUI, status:'fail' }}));
-      return;
-    }
-    // PATCH: validate URL + mixed-content before fetch
-    try { new URL(`${R}/order`); }
-    catch {
-      const msg = 'Bad RELAY URL';
-      window.CYCLA.lastFaults.set(symUI, { code:'NET_ERR', msg, tf });
-      ecu('err', `${symUI} FAIL • NET_ERR • ${msg}`);
-      statusBySym.set(symUI, 'fail'); updateActiveRowLED(symUI);
-      return;
-    }
-    if (location.protocol === 'https:' && String(R).startsWith('http://')){
-      const msg = 'Mixed content (page https, relay http)';
-      window.CYCLA.lastFaults.set(symUI, { code:'NET_ERR', msg, tf });
-      ecu('err', `${symUI} FAIL • NET_ERR • ${msg}`);
-      statusBySym.set(symUI, 'fail'); updateActiveRowLED(symUI);
-      return;
-    }
-
-    const t0 = Date.now();
-    // PATCH: client-side timeout for neat TIMEOUT classification
-    const ctrl = new AbortController();
-    const tKill = setTimeout(() => ctrl.abort('client-timeout'), 65000);
-
+    let bid=NaN, ask=NaN;
     try{
-      const res = await fetch(`${R}/order`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body),
-        signal: ctrl.signal
-      }).finally(() => clearTimeout(tKill));
+      const b = await jget(`/dbg/book?symbol=${encodeURIComponent(sym)}`);
+      bid = Number(b.est_bid_for_qty || b.bid || NaN);
+      ask = Number(b.est_ask_for_qty || b.ask || NaN);
+    }catch{}
 
-      const ms = Date.now() - t0;
-      let json; try{ json = await res.json(); }catch(_){ json = null; }
-      const graded = window.CYCLA.finalStatusFromOrderResponse(json);
-      const http   = res.status|0;
-      const code   = graded.status === 'ok' ? 'FILLED' : pickCode(json, http);
+    let curQty = 0, minQty = 0, holdingsCount = 0;
+    try{
+      const h = await jget(`/dbg/holdings?symbol=${encodeURIComponent(sym)}`);
+      minQty = Number(h.min_qty || 0);
+      holdingsCount = Array.isArray(h.all_holdings) ? h.all_holdings.length : 0;
+      const row = h.holding_row || {};
+      curQty =
+        Number(row.quantity_available_for_trading ?? row.available_asset_quantity ?? row.asset_quantity ?? row.total_quantity ?? row.quantity ?? 0) || 0;
+    }catch{}
 
-      statusBySym.set(symUI, graded.status); updateActiveRowLED(symUI);
+    const estBuyUsd  = NOTIONAL_USD;
+    const estSellUsd = Number.isFinite(curQty) && Number.isFinite(bid) && curQty>0 && bid>0 ? (curQty*bid) : NaN;
 
-      const ctx = {
-        http, qty: body.size, px: body.price, usd: Number(window?.CYCLA?.ORDER_USD ?? 3),
-        product: body.symbol, tf, minSize: json?.result?.min_size || json?.min_size
-      };
-      const hint = buildHint(code, ctx);
+    const l1 = `BUY: ${prettyUsd(estBuyUsd)}  •  SELL: ${prettyUsd(estSellUsd)}  •  SYM: ${sym}`;
+    const l2 = `Holdings(${holdingsCount}) • ${sym.split('-')[0]} qty ${curQty} • Bid ${prettyUsd(bid)} • Ask ${prettyUsd(ask)} • Notional ${prettyUsd(NOTIONAL_USD)}`;
 
-      if (graded.status !== 'ok'){
-        window.CYCLA.lastFaults.set(symUI, {
-          code, http, tf, side, px: body.price, qty: body.size,
-          backend_status: graded.tag,
-          error: firstStr(json?.error, json?.result?.error, json?.errors?.[0]?.message, json?.message, json?.detail),
-          ms
-        });
-      }
+    PL_BOX.innerHTML = `<div>${l1}</div><div class="tp-info-marquee" style="margin-top:4px;">${l2}</div>`;
+  }
 
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
-        detail:{
-          symbol: symUI,
-          status: graded.status,
-          filled_qty: Number(json?.result?.filled ?? 0),
-          backend_status: graded.tag,
-          code,
-          http,
-          ms
-        }
-      }));
+  // ───────────────────────── controls ────────────────────────
+  BTN_WCLR.addEventListener('click', ()=>{ watch.clear(); renderWatch(); ecu('warn','TW-WARN-211','Watchlist cleared.'); });
 
-      const diagTail = graded.status === 'ok'
-        ? `${side} ${symUI} → OK • ${graded.tag} • @${body.price} x ${body.size} • ${ms}ms`
-        : `${symUI} FAIL • ${code} [${graded.tag||http}] • @${body.price} x ${body.size} • ${ms}ms • ${hint}`;
+  BTN_AUTO.addEventListener('click', ()=>{
+    AUTO = !AUTO; BTN_AUTO.setAttribute('aria-pressed', AUTO ? 'true' : 'false');
+    if (AUTO){
+      for (const [k, v] of watch.entries()) active.set(k, v);
+      watch.clear(); renderWatch(); renderActive();
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
+      ecu('ok','TW-OK-101','AUTO started. Watchlist → Active.');
+    }else{
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+      ecu('warn','TW-WARN-201','AUTO stopped.');
+    }
+  });
 
-      ecu(graded.status === 'ok' ? 'ok' : 'err', diagTail);
+  BTN_BUY.addEventListener('click', async ()=>{
+    try { await placeOrder({ uiSym: chartSymbolUI, side: 'BUY' }); }
+    catch(err){ ecu('err','TW-ERR-421', `BUY failed: ${String(err.message||err)}`); }
+  });
 
-    }catch(err){
-      clearTimeout(tKill);
-      const ms = Date.now() - t0;
-      const http = 0;
-      const isAbort = err?.name === 'AbortError' || String(err||'').includes('client-timeout');
-      const code = isAbort ? 'TIMEOUT' : 'NET_ERR';
-      window.CYCLA.lastFaults.set(symUI, { code, http, tf, side, px: body?.price, qty: body?.size, error: String(err), ms });
-      ecu('err', `${symUI} FAIL • ${code} • ${isAbort ? 'client-timeout' : 'fetch error'} • ${err?.message||err} • ${ms}ms`);
-      statusBySym.set(symUI, 'fail'); updateActiveRowLED(symUI);
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', { detail:{ symbol: symUI, status:'fail', code, http, ms }}));
+  BTN_SELL.addEventListener('click', async ()=>{
+    try { await placeOrder({ uiSym: chartSymbolUI, side: 'SELL' }); }
+    catch(err){ ecu('err','TW-ERR-422', `SELL failed: ${String(err.message||err)}`); }
+  });
+
+  BTN_KS.addEventListener('click', async ()=>{
+    try { await jpost('/killswitch', {}); } catch {}
+    AUTO = false; BTN_AUTO.setAttribute('aria-pressed','false');
+    watch.clear(); active.clear(); renderWatch(); renderActive();
+    PL_BOX.textContent = '—';
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+    ecu('err','TW-ERR-401','Kill Switch pressed: HUDs reset. (Server KS ON)');
+  });
+
+  // ───────────────────────── connectivity probe ──────────────
+  async function probe(){
+    const isHttpsPage = location.protocol === 'https:';
+    if (isHttpsPage && /^http:/.test(RELAY_BASE)) {
+      ecu('err','TW-ERR-601','Mixed content: set window.CYCLA.RELAY_BASE to your HTTPS relay URL.');
+      return;
+    }
+    try{
+      const j = await jget('/status');
+      if (!j || j.ok !== true) ecu('warn','TW-WARN-602','Relay /status reachable but not ok:true.');
+      else ecu('ok','TW-OK-600',`Relay OK • auto=${j.auto} • ks=${j.ks ?? false}`);
+    }catch(e){
+      ecu('err','TW-ERR-603',`Relay unreachable: ${e.message}`);
     }
   }
 
-  BTN_BUY.onclick  = ()=> manualOrder('BUY');
-  BTN_SELL.onclick = ()=> manualOrder('SELL');
-
-  // ------------------ Cross-widget event wiring ------------------
-  window.CYCLA.bus.addEventListener('cycla:price:tick', (e)=>{
-    const d = e.detail || {}; const sym = uiNormalize(d.symbol); const px = Number(d.price);
-    if (!sym || !Number.isFinite(px)) return; if (ledger.open.has(sym)){ lastPrice.set(sym, px); renderPLFromTotals(); }
-  });
-
-  window.CYCLA.bus.addEventListener('cycla:trades:clear', ()=>{
-    watchSet.clear(); activeSet.clear(); statusBySym.clear();
-    ledger.open.clear(); ledger.closed.length = 0;
-    Object.assign(ledger.totals, { buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 });
-    renderList(WATCH, watchSet, 'Watch'); renderList(ACTIVE, activeSet, 'Active'); PL_BOX.textContent = '—';
-    ecu('warn','Cleared Active + ledger');
-  });
-
-  window.CYCLA.bus.addEventListener('cycla:chart:markers', (e)=>{
-    // unchanged snapshot logic
-    const payload = e.detail || {};
-    if (ledger.closed.length || ledger.open.size) return;
-    if(!payload || !payload.markers || !payload.visible || !payload.priceByTime) return;
-    const { from, to } = payload.visible || {};
-    const priceByTime = payload.priceByTime || {};
-    const markers = (payload.markers || []).filter(m => typeof m?.time === 'number' && m.time >= from && m.time <= to);
-    const fr = feeRate(); let buys=0, sells=0, gross=0, fees=0; let open = null;
-    const simSizeFor = (p)=>{ const usd=Number(window?.CYCLA?.ORDER_USD ?? 3), step=0.000001, raw=usd/p; return Math.max(0, +(Math.floor(raw/step)*step).toFixed(6)); };
-    for (const m of markers){
-      let side = String(m?.text||'').toUpperCase();
-      if (side !== 'BUY' && side !== 'SELL'){ if (m.position === 'belowBar') side = 'BUY'; else if (m.position === 'aboveBar') side = 'SELL'; else continue; }
-      const px = Number(priceByTime[m.time] ?? m.price ?? NaN); if (!Number.isFinite(px) || px<=0) continue;
-      if (side === 'BUY'){ open = { price:px }; buys++; }
-      else if (side === 'SELL' && open){ const q=simSizeFor(open.price), bU=q*open.price, sU=q*px, f=bU*fr + sU*fr, g=sU-bU; gross += g; fees += f; sells++; open=null; }
-    }
-    PL_BOX.textContent = `Buys: ${buys}   Sells: ${sells}\nGross: $${fmtUSD(gross)}   Fees: $${fmtUSD(fees)}\nNet: $${fmtUSD(gross - fees)}  [sim]`;
-  });
-
-  window.CYCLA.bus.addEventListener('cycla:pl:leg', (e)=>{ addLeg(e.detail || {}); });
-
-  // ENHANCED: include code/http in ECU echo from external status updates
-  window.CYCLA.bus.addEventListener('cycla:order:status', (e)=>{
-    const d = e.detail || {};
-    const sym = uiNormalize(d.symbol || ''); const st = d.status || 'idle';
-    if (!sym) return;
-    if (!activeSet.has(sym)){ activeSet.add(sym); if (!statusBySym.has(sym)) statusBySym.set(sym, 'idle'); renderList(ACTIVE, activeSet, 'Active'); }
-    statusBySym.set(sym, st); updateActiveRowLED(sym);
-    if (st !== 'pending'){
-      const tag = d.backend_status ? ` [${d.backend_status}]` : (d.http ? ` [HTTP ${d.http}]` : '');
-      const code = d.code ? ` • ${d.code}` : '';
-      ecu(st === 'ok' ? 'ok' : 'err', `${sym} ${st.toUpperCase()}${code}${tag}`);
-    }
-  });
-
-  renderList(WATCH, watchSet, 'Watch');
-  renderList(ACTIVE, activeSet, 'Active');
-  renderPLFromTotals();
+  // ───────────────────────── init ────────────────────────────
+  probe();
+  refreshHudOnce().catch(()=>{});
+  setInterval(()=>{ refreshHudOnce().catch(()=>{}); }, POLL_MS);
+  ecu('ok','TW-OK-100',`Trades widget ready. Relay wiring live (5s steps, BUY $${NOTIONAL_USD}).`);
 })();
 </script>
