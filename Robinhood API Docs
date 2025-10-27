@@ -532,6 +532,95 @@ The bid and ask prices are the prices our trading venues provide for an order, i
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 query Parameters
 symbol	
 string
@@ -592,6 +681,95 @@ The bid and ask prices are the best prices our trading venues provide for an ord
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 query Parameters
 symbol
 required
@@ -663,6 +841,95 @@ Fetch a list of trading pairs.
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 query Parameters
 symbol	
 string
@@ -742,6 +1009,95 @@ Fetch a list of holdings for the current user.
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 query Parameters
 asset_code	
 string
@@ -760,8 +1116,36 @@ cursor
 string
 Responses
 200
+Response Schema: application/json
+next	
+string or null <uri>
+previous	
+string or null <uri>
+results
+required
+Array of objects (Holdings)
 400
+Response Schema: application/json
+type	
+string
+Enum: "validation_error" "client_error" "server_error"
+The error type of the response
+
+errors	
+Array of objects
+List of errors
+
 404
+Response Schema: application/json
+type	
+string
+Enum: "validation_error" "client_error" "server_error"
+The error type of the response
+
+errors	
+Array of objects
+List of errors
+
 
 get
 /api/v1/crypto/trading/holdings/
@@ -793,6 +1177,95 @@ Fetch a list of orders for the current user.
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 query Parameters
 created_at_start	
 string
@@ -911,6 +1384,95 @@ For order configurations that support both asset_quantity or quote_amount, only 
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 Request Body schema: application/json
 required
 symbol
@@ -1128,6 +1690,95 @@ Cancels an open crypto trading order.
 
 Authorizations:
 (API KeyAPI SignatureTimestamp)
+ API Key: API Key
+The "x-api-key" header should contain your API key. This API key is obtained from the Robinhood API Credentials Portal when enrolling in the Robinhood Crypto API program.
+
+*API keys issued after August 13, 2024 will be formatted as "rh-api-[uuid]." Functionality will remain the same, and older keys will keep the original formatting (no "rh-api" prepend).
+
+Header parameter name: x-api-key
+ API Key: API Signature
+Authenticated requests should be signed with the "x-signature" header, using a signature generated with the following: private key, API key, timestamp, path, method, and body. Here’s how the message signature should be defined:
+
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+*Note that for requests without a body, the body can be omitted from the message signature.
+
+Example Signature
+The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+Field	Value
+Private Key	xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=
+Public Key	jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=
+API Key	rh-api-6148effc-c0b1-486c-8940-a1d099456be6
+Method	POST
+Path	/api/v1/crypto/trading/orders/
+Body	{"client_order_id":"131de903-5a9c-4260-abc1-28d562a5dcf0","side":"buy","type":"market","symbol":"BTC-USD","market_order_config":{"asset_quantity":"0.1"}}
+Timestamp	1698708981
+API Signature Header	q/nEtxp/P2Or3hph3KejBqnw5o9qeuQ+hYRnB56FaHbjDsNUY9KhB1asMxohDnzdVFSD7StaTqjSd9U9HvaRAw==
+Code Example
+Python
+import nacl.signing
+import base64
+import time
+
+# Replace these with your base64-encoded keys
+private_key_base64 = "xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU="
+public_key_base64 = "jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk="
+
+api_key = "rh-api-6148effc-c0b1-486c-8940-a1d099456be6"
+
+# Get the current Unix timestamp in seconds
+# You can get the current_timestamp with the following code:
+# current_timestamp = int(time.time())
+# This value is hardcoded for demonstration purposes to match the example in the documentation
+current_timestamp = "1698708981"
+
+path = f"/api/v1/crypto/trading/orders/"
+
+method = "POST"
+
+body = {
+    "client_order_id": "131de903-5a9c-4260-abc1-28d562a5dcf0",
+    "side": "buy",
+    "symbol": "BTC-USD",
+    "type": "market",
+    "market_order_config": {
+        "asset_quantity": "0.1"
+    },
+}
+
+# Convert base64 strings to seed (for private key) and bytes (for public key)
+private_key_seed = base64.b64decode(private_key_base64)
+public_key_bytes = base64.b64decode(public_key_base64)
+
+# Create private key (from seed) and public key (from bytes)
+private_key = nacl.signing.SigningKey(private_key_seed)
+public_key = nacl.signing.VerifyKey(public_key_bytes)
+
+# Create the message to sign
+message = f"{api_key}{current_timestamp}{path}{method}{body}"
+
+# Sign the message
+signed = private_key.sign(message.encode("utf-8"))
+
+base64_signature = base64.b64encode(signed.signature).decode("utf-8")
+print(base64_signature)
+
+# Verify the signature
+public_key.verify(signed.message, signed.signature)
+
+Header parameter name: x-signature
+ API Key: Timestamp
+The "x-timestamp" header should contain the timestamp of the request.
+
+To protect the security and integrity of your API interactions, timestamps are only valid for 30 seconds after they’re generated, and an expired timestamp will be rejected. Therefore, ensure that your requests are made promptly after generating the timestamp.
+
+Below is an example in Python on how to generate the timestamp.
+
+import time
+
+current_timestamp = int(time.time())
+print(current_timestamp)
+Header parameter name: x-timestamp
 path Parameters
 id
 required
@@ -1161,4 +1812,3 @@ The error type of the response
 errors	
 Array of objects
 List of errors
-
