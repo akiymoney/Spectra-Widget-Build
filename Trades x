@@ -64,14 +64,21 @@
 </div>
 
 <style>
-  #cycla-trades-center *{
-    box-sizing:border-box;
+  :root{
+    --tp-bg-top:#f6f9ff;
+    --tp-bg-bot:#eef6ff;
+    --tp-hud-bg:#ffffffc7;
+    --tp-hud-brd:rgba(10,20,40,.12);
+    --tp-hud-h:144px;
+    --tp-hud-p:6px;
+    --tp-hdr-h:23px;
   }
+
   #cycla-trades-center{
-    width:100%;
+    width:233px;
     height:var(--block-h,523px);
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:center;
     margin:0 auto;
     padding:0;
@@ -105,32 +112,37 @@
   }
 
   .tp-hud{
-    width:221px;
-    border:1px solid rgba(10,20,40,.12);
-    border-radius:12px;
-    background:#fff;
-    margin:0 auto 6px auto;
+    position:relative;
+    width:100%;
+    margin:0 0 6px 0;
+    padding:0;
+    background:var(--tp-hud-bg);
+    border:1px solid var(--tp-hud-brd);
+    border-radius:10px;
+    box-shadow:0 14px 32px rgba(8,16,40,.12);
+    display:flex;
+    flex-direction:column;
+    min-height:var(--tp-hud-h);
     overflow:hidden;
   }
 
   .tp-pl{
-    height:89px;
-    display:flex;
-    flex-direction:column;
+    min-height:89px;
+    background:linear-gradient(180deg,#fff 0%,#fff 60%,#f1f8ff 100%);
   }
 
   .tp-watch,
   .tp-active{
-    height:144px;
-    display:flex;
-    flex-direction:column;
+    min-height:144px;
+    background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%);
   }
 
   .tp-hdr{
-    height:28px;
+    flex:0 0 var(--tp-hdr-h);
     display:flex;
     align-items:center;
     padding:0 8px;
+    font-size:11px;
     font-weight:800;
     color:#33415e;
     background:rgba(255,255,255,.78);
@@ -161,23 +173,18 @@
      right col: LED/status bubble  */
   .tp-row-item{
     display:grid;
-    grid-template-columns: 1fr auto;
-    gap:6px;
-    align-items:center;
-    padding:6px;
-    margin-bottom:6px;
-    border-radius:8px;
-    background:#fff;
+    grid-template-columns:1fr auto;
+    align-items:flex-start;
+    justify-content:space-between;
+    column-gap:8px;
+    row-gap:2px;
+    background:rgba(255,255,255,.6);
     border:1px solid rgba(10,20,40,.12);
+    border-radius:8px;
+    padding:4px 6px;
+    margin-bottom:4px;
+    box-shadow:0 10px 16px rgba(0,0,0,.07);
     cursor:pointer;
-    user-select:none;
-  }
-  .tp-row-item:hover{
-    background:#eef7ff;
-  }
-  .tp-row-item:focus{
-    outline: 2px solid #60a5fa;
-    outline-offset: 2px;
   }
 
   .tp-left{
@@ -187,6 +194,7 @@
   }
 
   .tp-sym{
+    font-size:12px;
     font-weight:800;
     color:#1b2a4a;
   }
@@ -219,16 +227,16 @@
     background:#6b7280;          /* gray / neutral */
   }
   .tp-led--pending{
-    background:#eab308;          /* yellow / working */
-    animation: tp-pulse 1s infinite alternate;
-    box-shadow:0 0 6px rgba(234,179,8,.9), 0 0 2px rgba(0,0,0,.4) inset;
+    background:#fde047;          /* yellow */
+    box-shadow:0 0 6px rgba(250,204,21,.9), 0 0 2px rgba(0,0,0,.4) inset;
+    animation:tp-pulse .6s infinite alternate;
   }
   .tp-led--ok{
-    background:#22c55e;          /* green / (partially) filled */
-    box-shadow:0 0 6px rgba(34,197,94,.9), 0 0 2px rgba(0,0,0,.4) inset;
+    background:#10b981;          /* green */
+    box-shadow:0 0 6px rgba(16,185,129,.9), 0 0 2px rgba(0,0,0,.4) inset;
   }
   .tp-led--fail{
-    background:#ef4444;          /* red / canceled-unfilled, rejected, etc */
+    background:#ef4444;          /* red */
     box-shadow:0 0 6px rgba(239,68,68,.9), 0 0 2px rgba(0,0,0,.4) inset;
   }
 
@@ -259,30 +267,20 @@
     border:1px solid rgba(10,20,40,.14);
     background:rgba(255,255,255,.95);
     box-shadow:0 13px 21px rgba(8,16,40,.18);
-    color:#1b2a4a;
     font-weight:800;
-    cursor:pointer;
-    position:relative;
+    font-size:11px;
+    color:#1b2a4a;
+    line-height:1;
     display:flex;
     align-items:center;
     justify-content:center;
-    line-height:1;
-    font-size:13px;
+    padding:0 6px;
+    cursor:pointer;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
   }
 
-  /* KS button is 34x34px at the end of the row */
   .tp-btn-ks{
-    width:34px;
-    height:34px;
-    min-width:34px;
-    min-height:34px;
-    padding:0;
-    font-size:12px;
-    line-height:1;
-    justify-content:center;
-  }
-
-  .tp-btn--danger{
+    background:radial-gradient(circle at 30% 30%, #fff 0%, #fee2e2 40%, #fecaca 100%);
     border-color:#dc2626;
     color:#7a0a0a;
   }
@@ -313,15 +311,16 @@
   }
   .tp-auto-off .tp-auto-led{
     background:#4b5563; /* gray */
+    box-shadow:0 0 4px rgba(75,85,99,.8);
   }
 
-  /* AUTO armed (trading live / will auto-fire signals) */
+  /* AUTO on / armed */
   .tp-auto-armed{
-    opacity:1;
-    border-color:#16a34a;
+    border-color:#059669;
     color:#065f46;
-    box-shadow:0 0 8px rgba(16,185,129,.8), 0 13px 21px rgba(8,16,40,.18);
+    background:radial-gradient(circle at 30% 30%, #fff 0%, #d1fae5 40%, #a7f3d0 100%);
   }
+
   .tp-auto-armed .tp-auto-led{
     background:#16a34a;
     box-shadow:0 0 6px rgba(16,185,129,.9);
@@ -333,38 +332,38 @@
   const ROOT = document.getElementById('cycla-trades-widget');
 
   // ------------------ CYCLA namespace prep ------------------
-window.CYCLA ??= {};
-window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+  window.CYCLA ??= {};
+  window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 
-// --- GLOBAL helper so both manual + AUTO can grade fills the same way ---
-window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderResponse(json){
-  // pessimistic default
-  let st = 'fail';
+  // --- GLOBAL helper so both manual + AUTO can grade fills the same way ---
+  window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderResponse(json){
+    // default pessimistic
+    let st = 'fail';
 
-  const filled = Number(json?.result?.filled_qty ?? 0);
+    const act = json?.result?.action || '';
+    const filled = Number(json?.result?.filled ?? 0);
 
-  if (filled > 0){
-    st = 'ok';
-  } else if (
-    json?.result?.status === 'buy_timeout_canceled' ||
-    json?.result?.status === 'sell_forced_market' ||
-    json?.result?.status === 'sell_filled_escalated' ||
-    json?.result?.status === 'buy_filled_escalated'
-  ){
-    const filled2 = Number(json?.result?.filled_qty ?? 0);
-    if (filled2 > 0){
+    // success cases:
+    // - any nonzero filled
+    // - explicit successful actions from relay
+    if (
+      filled > 0 ||
+      act === 'buy_limit_filled' ||
+      act === 'sell_limit_filled' ||
+      act === 'sell_timeout_market_remainder'
+    ){
       st = 'ok';
     }
-  }
 
-  return st;
-};
+    return st;
+  };
 
   // per-symbol TF freeze map (AUTO gating uses this; chart also keeps this synced)
   (window.CYCLA.tfBySymbol ||= Object.create(null));
 
   // relay base URL that /order posts to
   const RELAY = window?.CYCLA?.RELAY;
+  const DAEMON = window?.CYCLA?.DAEMON;
 
   // ------------------ Element refs ------------------
   const WATCH      = ROOT.querySelector('#tp-watch');
@@ -445,6 +444,12 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
 
   // ------------------ LED helpers ------------------
   function applyStatusToRow(row, sym){
+    if (!row) return;
+    const left = row.querySelector('.tp-left .tp-sym');
+    if (left){
+      left.textContent = sym;
+    }
+
     const led = row.querySelector('.tp-led');
     if (!led) return;
 
@@ -477,10 +482,10 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
     const left = document.createElement('div');
     left.className = 'tp-left';
 
-    const symEl = document.createElement('div');
-    symEl.className = 'tp-sym';
-    symEl.textContent = sym;
-    left.appendChild(symEl);
+    const name = document.createElement('div');
+    name.className = 'tp-sym';
+    name.textContent = sym;
+    left.appendChild(name);
 
     const mini = document.createElement('div');
     mini.className = 'tp-mini';
@@ -536,6 +541,41 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
     }
   }
 
+  // ------------------ AUTO / daemon sync wiring ------------------
+  // Push AUTO state + watchlist/active set to the headless daemon.
+  // When enabled=true: daemon should start trading every symbol in Active,
+  // using its remembered TF for each symbol (tfBySymbol).
+  async function syncDaemonAuto(enable){
+    const DAEMON_BASE = DAEMON;
+    if (!DAEMON_BASE) return; // if not provided, just run local UI logic
+
+    try{
+      const itemsArr = [];
+      if (enable){
+        for (const sym of activeSet){
+          const tfSel =
+            (window.CYCLA.tfBySymbol?.[sym] ||
+             String(window?.CYCLA?.currentTF || '1m').toUpperCase());
+          itemsArr.push({ symbol: sym, tf: tfSel });
+        }
+      }
+
+      const body = {
+        enabled: !!enable,
+        orderUsd: Number(window?.CYCLA?.ORDER_USD ?? 3),
+        items: itemsArr
+      };
+
+      await fetch(`${DAEMON_BASE}/auto`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
+      });
+    }catch(err){
+      console.warn('[syncDaemonAuto] failed', err);
+    }
+  }
+
   // ------------------ AUTO button wiring ------------------
   function updateAutoVisual(){
     if (window.AUTO){
@@ -551,7 +591,7 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
     }
   }
 
-  BTN_AUTO.addEventListener('click', ()=>{
+  BTN_AUTO.addEventListener('click', async ()=>{
     // flip AUTO
     window.AUTO = !window.AUTO;
     console.log('[CYCLA AUTO] client AUTO is now', window.AUTO);
@@ -578,6 +618,9 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
     }
 
     updateAutoVisual();
+
+    // tell daemon about new AUTO state (arm/disarm for full watchlist)
+    await syncDaemonAuto(window.AUTO);
   });
 
   // if something else says "stop", mirror that
@@ -619,7 +662,8 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
   function feeRate(){
     const F = window?.CYCLA?.FEE || {};
     const book = F[F.venue || 'spot'] || { maker:0, taker:0 };
-    return (F.mode === 'maker' ? book.maker : book.taker) || 0;
+    const mode = F.mode || 'taker';
+    return Number(book[mode] ?? 0);
   }
 
   // floor $3 worth of coin to ~1e-6 base step
@@ -638,31 +682,31 @@ window.CYCLA.finalStatusFromOrderResponse = function finalStatusFromOrderRespons
     totals: { buys:0, sells:0, gross:0, fees:0, net:0, wins:0, losses:0 }
   };
 
-// expose ledger so chart (AUTO) can inspect current position sizes
-window.CYCLA.ledger = ledger;
+  // expose ledger so chart (AUTO) can inspect current position sizes
+  window.CYCLA.ledger = ledger;
 
-// helper: given symbol, side, and reference price, decide how much to trade
-// - for SELL: try to unload the full open qty for that ticker
-// - for BUY: fall back to ~$3 notional
-window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
-  const normSym = String(symUI||'')
-    .toUpperCase()
-    .replace(/[\/\-\s]/g,'');
+  // helper: given symbol, side, and reference price, decide how much to trade
+  // - for SELL: try to unload the full open qty for that ticker
+  // - for BUY: fall back to ~$3 notional
+  window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
+    const normSym = String(symUI||'')
+      .toUpperCase()
+      .replace(/[\/\-\s]/g,'');
 
-  if (side === 'SELL' && window.CYCLA.ledger?.open?.has(normSym)){
-    const pos = window.CYCLA.ledger.open.get(normSym);
-    if (pos && pos.qty > 0){
-      return pos.qty; // dump full bag
+    if (side === 'SELL' && window.CYCLA.ledger?.open?.has(normSym)){
+      const pos = window.CYCLA.ledger.open.get(normSym);
+      if (pos && pos.qty > 0){
+        return pos.qty; // dump full bag
+      }
     }
-  }
 
-  // BUY sizing (or SELL fallback): ~$3 worth, floored to 1e-6
-  const usd  = Number(window?.CYCLA?.ORDER_USD ?? 3);
-  const step = 0.000001;
-  const raw  = usd / px;
-  const sized = Math.floor(raw / step) * step;
-  return Math.max(0, +sized.toFixed(6));
-};
+    // BUY sizing (or SELL fallback): ~$3 worth, floored to 1e-6
+    const usd  = Number(window?.CYCLA?.ORDER_USD ?? 3);
+    const step = 0.000001;
+    const raw  = usd / px;
+    const sized = Math.floor(raw / step) * step;
+    return Math.max(0, +sized.toFixed(6));
+  };
 
   // last seen mark price per symbol (for unrealized P/L calc)
   const lastPrice = new Map();
@@ -681,7 +725,9 @@ window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
       text += `Unrealized: $${fmtUSD(u.uNet)}   Open: ${ledger.open.size} pos`;
     }
 
-    text += `\n[${mode}/${venue}]`;
+    // tack on fee context
+    text += `\nFee: ${mode} @ ${venue}`;
+
     PL_BOX.textContent = text;
   }
 
@@ -742,10 +788,11 @@ window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
         ledger.totals.gross  += gross;
         ledger.totals.fees   += fees;
         ledger.totals.net    += net;
-        if (net >= 0) ledger.totals.wins++; else ledger.totals.losses++;
+        if (net >= 0) ledger.totals.wins += 1;
+        else          ledger.totals.losses += 1;
 
         o.qty = +(o.qty - closeQty).toFixed(6);
-        if (o.qty <= 1e-12){
+        if (o.qty <= 0){
           ledger.open.delete(sym);
         } else {
           ledger.open.set(sym, o);
@@ -805,8 +852,8 @@ window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
         const q  = sizeForPrice(open.price);
         const bU = q * open.price;
         const sU = q * px;
+        const f  = bU * fr + sU * fr;
         const g  = sU - bU;
-        const f  = bU*fr + sU*fr;
         gross += g;
         fees  += f;
         sells++;
@@ -821,9 +868,8 @@ window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
   }
 
   // ------------------ Manual order executor (BUY / SELL buttons) ------------------
-
   async function manualOrder(side){
-    // Pull current symbol / tf / price / bar time straight from the chart widget globals.
+    // Pull current chart-highlighted symbol / TF / price / bar time
     const symUI  = uiNormalize(window?.CYCLA?.symbolNow?.() || '');
     const tf     = String(window?.CYCLA?.currentTF || '1m').toUpperCase();
     const pxRaw  = Number(window?.CYCLA?.priceNow?.() ?? NaN);
@@ -848,9 +894,9 @@ window.CYCLA.chooseQtyForSidePx = function(symUI, side, px){
       ? roundToStep(pxRaw, pStep, 'ceil')   // SELL nudges up to next tick
       : roundToStep(pxRaw, pStep, 'floor'); // BUY nudges down to next tick
 
-// Choose size using the shared global logic (SELL dumps full bag, BUY ~ $3)
-const rawQty = window.CYCLA.chooseQtyForSidePx(symUI, side, limitPx);
-const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
+    // Choose size using the shared global logic (SELL dumps full bag, BUY ~ $3)
+    const rawQty    = window.CYCLA.chooseQtyForSidePx(symUI, side, limitPx);
+    const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
 
     if (!Number.isFinite(limitPx) || limitPx <= 0 ||
         !Number.isFinite(qtyRounded) || qtyRounded <= 0){
@@ -896,16 +942,14 @@ const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
       time: barT
     });
 
-    // Prepare request body for relay /order
+    // Prepare request body for relay /order (relay = Robinhood adapter now)
     const body = {
-      product_id,
+      symbol: product_id,
       side,                       // "BUY" | "SELL"
-      type: "limit",
       price: limitPx,
       size: qtyRounded,
-      seconds: 60,                // give it up to ~60s then cancel / best-effort fill
-      client_order_id: `${symUI}-${tf}-${barT}-${side}-manual`,
-      symbol_raw: symUI
+      seconds: 60,                // wait up to ~60s
+      client_order_id: `${symUI}-${tf}-${barT}-${side}-manual`
     };
 
     console.log('POST /order body →', body);
@@ -913,6 +957,7 @@ const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
     // Actually send order to RELAY
     if (!RELAY){
       console.warn('[manualOrder] RELAY missing, skipping fetch');
+
       // mark as fail since we couldn't even send
       statusBySym.set(symUI, 'fail');
       updateActiveRowLED(symUI);
@@ -934,20 +979,20 @@ const qtyRounded = roundToStep(rawQty, BASE_SIZE_STEP, 'floor');
       try{ json = await res.json(); }catch(_){}
       console.log(`POST /order ← ${res.status} ${res.statusText} in ${ms}ms`, json);
 
-const finalState = window.CYCLA.finalStatusFromOrderResponse(json);
+      const finalState = window.CYCLA.finalStatusFromOrderResponse(json);
 
-statusBySym.set(symUI, finalState);
-updateActiveRowLED(symUI);
+      statusBySym.set(symUI, finalState);
+      updateActiveRowLED(symUI);
 
-// broadcast truthfully so any other panels / listeners sync correctly
-window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
-  detail:{
-    symbol: symUI,
-    status: finalState,
-    filled_qty: Number(json?.result?.filled_qty ?? 0),
-    backend_status: json?.result?.status
-  }
-}));
+      // broadcast truthfully so any other panels / listeners sync correctly
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{
+          symbol: symUI,
+          status: finalState,
+          filled_qty: Number(json?.result?.filled ?? 0),
+          backend_status: json?.result?.action
+        }
+      }));
 
     }catch(err){
       console.warn('manualOrder fetch failed:', err);
@@ -959,8 +1004,8 @@ window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
     }
   }
 
-BTN_BUY.onclick  = ()=> manualOrder('BUY');
-BTN_SELL.onclick = ()=> manualOrder('SELL');
+  BTN_BUY.onclick  = ()=> manualOrder('BUY');
+  BTN_SELL.onclick = ()=> manualOrder('SELL');
 
   // ------------------ Cross-widget event wiring ------------------
 
