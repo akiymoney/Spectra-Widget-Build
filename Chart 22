@@ -219,7 +219,12 @@ window.CYCLA.GATE_PCT = 0.80; // 1.0 = close-only
 
 window.CYCLA.TD_KEY = TD_KEY;                     // expose key for Screener fallback
 window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+const BUS = window.CYCLA.bus;
 window.CYCLA.currentTF = window.CYCLA.currentTF || '1m';
+
+// canonical chart state the rest of the app can read
+window.CYCLA.currentSymbol = window.CYCLA.currentSymbol || '';
+window.CYCLA.lastPrice     = window.CYCLA.lastPrice ?? undefined;
 
 const RELAY = "https://spectra-trade-bot.onrender.com";
 window.CYCLA.RELAY = RELAY; // ✅ expose to other widgets
@@ -1068,18 +1073,33 @@ function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers) {
       const onceKey = __evtKey(symbol, tf, m.time, side);
       if (!__rememberOnce(onceKey)) continue;
 
-      // 🚀 FIRE the trade intent to AUTO queue
-      window.CYCLA.bus.dispatchEvent(
-        new CustomEvent('cycla:signal', {
-          detail: {
-            symbol,   // e.g. "ETCUSD"
-            tf,       // e.g. "1m"
-            side,     // "BUY" | "SELL"
-            time: m.time,
-            price     // numeric limit reference
-          }
-        })
-      );
+ // Compute printed/progress so Trades can gate strictly on "fully printed"
+const lastBar = (current?.buf?.price || []).at(-1);
+const tfSec = tfSeconds(tf);
+const nowSec = Math.floor(Date.now() / 1000);
+const isCurrentBar = !!lastBar && (m.time === lastBar.time);
+const progress = isCurrentBar ? Math.max(0, Math.min(1, (nowSec - m.time) / tfSec)) : 1;
+// "printed" means bar is closed OR at/above gate threshold on live bar
+const GATE_PCT = (window?.CYCLA?.GATE_PCT ?? 0.80);
+const printed = !isCurrentBar || (progress >= GATE_PCT);
+
+// 🚀 FIRE the trade intent to AUTO queue (now with flags)
+window.CYCLA.bus.dispatchEvent(
+  new CustomEvent('cycla:signal', {
+    detail: {
+      symbol,        // "BTCUSD"
+      tf,            // e.g. "1m"
+      side,          // "BUY" | "SELL"
+      time: m.time,
+      price,         // numeric limit reference
+      printed,       // ⟵ strict flag
+      progress,      // ⟵ 0..1 on current bar (1 for closed)
+      from: 'chart',
+      closeOnly: (window?.CYCLA?.GATE_PCT === 1.0) // true when AUTO forces close-only
+    }
+  })
+);
+
     }
   } catch (e) {
     console.warn('emitTradeSignals failed:', e);
@@ -1147,6 +1167,9 @@ window.CYCLA.symbolNow = () => (INFO?.sym?.textContent || '').trim().toUpperCase
 function applyTfLocalization(tf){
   window.CYCLA.currentTF = tf;   // <— new: share current TF with Screener early
   currentTF = tf;
+
+// notify the bus (idempotent)
+BUS.dispatchEvent(new CustomEvent('cycla:chart:tf', { detail:{ tf } }));
 
   chart.applyOptions({
     timeScale: { timeVisible: !(tf === '1D' || tf === '1M'), secondsVisible: false },
@@ -1232,6 +1255,8 @@ INFO.sym.textContent = toUiSymbol(symbol);
       const rawBars = await getBars(symbol, tf, 800);
       const { smftBars, osc, bandUp, bandDn, state } = buildSMFT(rawBars, SMFT_PARAMS, OSC_PARAMS);
 
+
+
       // Price + SMFT candles on main
       series.setData(smftBars);
 
@@ -1240,6 +1265,12 @@ INFO.sym.textContent = toUiSymbol(symbol);
       bandUpSeries.setData(bandUp);
       bandDnSeries.setData(bandDn);
       zeroLine.setData(osc.map(d => ({ time:d.time, value:0 })));
+
+// Single source of truth for last close on this load
+const lastClose = smftBars.at(-1)?.close;
+if (Number.isFinite(+lastClose)) {
+  INFO.last.textContent = 'Last: ' + (+lastClose).toFixed(2);
+}
 
  const markers = computeMarkers(smftBars, osc, bandUp, bandDn, tf);
 
@@ -1282,9 +1313,38 @@ try {
         qURL.searchParams.set('symbol', symbol);
         qURL.searchParams.set('apikey', TD_KEY);
         const q = await fetch(qURL).then(r=>r.json());
-        if(q && q.name){ INFO.name.textContent = q.name; }
-        if(q && q.close){ INFO.last.textContent = 'Last: ' + Number(q.close).toFixed(2); }
+  if (q && typeof q.name === 'string') { INFO.name.textContent = q.name; }
+if (q && Number.isFinite(+q.close)) {
+  INFO.last.textContent = 'Last: ' + (+q.close).toFixed(2);
+}
       }catch(e){ /* non-fatal */ }
+
+// ——— publish chart state now that we have data ———
+const uiSymNow  = toUiSymbol(symbol);
+// (remove: const lastNow = smftBars.at(-1)?.close;)
+window.CYCLA.currentSymbol = uiSymNow;
+window.CYCLA.currentTF     = tf;
+if (Number.isFinite(+lastClose)) window.CYCLA.lastPrice = +lastClose;
+
+ROOT.setAttribute('data-symbol', uiSymNow);
+ROOT.setAttribute('data-tf', tf);
+if (Number.isFinite(+lastClose)) ROOT.setAttribute('data-last', String(+lastClose));
+
+// bus broadcasts (idempotent)
+BUS.dispatchEvent(new CustomEvent('cycla:loaded',        { detail:{ symbol: uiSymNow, tf } })); // ← renamed
+BUS.dispatchEvent(new CustomEvent('cycla:chart:symbol',  { detail:{ symbol: uiSymNow } }));
+BUS.dispatchEvent(new CustomEvent('cycla:last',          { detail:{ symbol: uiSymNow, last: window.CYCLA.lastPrice } }));
+
+BUS.dispatchEvent(new CustomEvent('cycla:load',         { detail:{ symbol: uiSymNow, tf } }));
+
+// Let other widgets query current chart state synchronously
+window.CYCLA.getDisplayed = function(){
+  return {
+    symbol: window.CYCLA.currentSymbol || '',
+    tf:     window.CYCLA.currentTF     || '',
+    last:   window.CYCLA.lastPrice
+  };
+};
 
       // Start 5s / 15s “breathing” poll
       const periodMs = (tf === '1H' || tf === '1D' || tf === '1M') ? 15000 : 5000;
@@ -1369,7 +1429,18 @@ try {
 }
 
           const lastRaw = tail[tail.length-1];
-          INFO.last.textContent = 'Last: ' + Number(lastRaw.close).toFixed(2);
+
+const ln = Number(lastRaw.close);
+INFO.last.textContent = 'Last: ' + (Number.isFinite(ln) ? ln.toFixed(2) : '—');
+
+if (Number.isFinite(ln)) {
+  window.CYCLA.lastPrice = ln;
+  BUS.dispatchEvent(new CustomEvent('cycla:last', {
+    detail:{ symbol: INFO.sym.textContent.trim().toUpperCase(), last: ln }
+  }));
+  ROOT.setAttribute('data-last', String(ln));
+}
+
         }catch(e){}
       }, periodMs);
 
@@ -1428,4 +1499,18 @@ TF_MENU.querySelectorAll('button').forEach(btn=>{
 safeLoad(DEFAULT_SYMBOL, '1m');
 
 })();
+
+// Handshake responder: trades widget asks, chart answers
+(window.CYCLA.bus).addEventListener('cycla:req:state', (e)=>{
+  const nonce = e?.detail?.nonce;
+  (window.CYCLA.bus).dispatchEvent(new CustomEvent('cycla:res:state', {
+    detail:{
+      nonce,
+      symbol: window.CYCLA.currentSymbol || '',
+      tf:     window.CYCLA.currentTF     || '',
+      last:   window.CYCLA.lastPrice
+    }
+  }));
+});
+
 </script>
