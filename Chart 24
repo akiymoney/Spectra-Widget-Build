@@ -974,6 +974,53 @@ chart.timeScale().subscribeVisibleTimeRangeChange((vis) => {
     crosshair: { mode: 0 }
   });
 
+// —— Persistent viewport (shared across assets/TF) ——
+// Will remember how many bars are visible and where you scrolled.
+window.CYCLA = window.CYCLA || {};
+window.CYCLA.VIEW = window.CYCLA.VIEW || {
+  logical: null,        // from getVisibleLogicalRange()
+  oscLogical: null,     // same for the osc pane
+  // optional vertical zoom (guarded; may not be supported on all builds)
+  priceRange: null,     // {min, max} from priceScale('right').getVisiblePriceRange()
+};
+
+function snapshotViewport() {
+  try {
+    const lr  = chart.timeScale().getVisibleLogicalRange?.();
+    const olr = chartOsc.timeScale().getVisibleLogicalRange?.();
+    const pr  = chart.priceScale('right')?.getVisiblePriceRange?.(); // may be undefined on some builds
+
+    if (lr)  window.CYCLA.VIEW.logical = lr;
+    if (olr) window.CYCLA.VIEW.oscLogical = olr;
+    if (pr && Number.isFinite(pr.min) && Number.isFinite(pr.max)) {
+      window.CYCLA.VIEW.priceRange = { min: pr.min, max: pr.max };
+    }
+  } catch {}
+}
+
+function restoreViewport() {
+  const v = window.CYCLA.VIEW || {};
+  try {
+    // Restore horizontal zoom/scroll first (safe & robust across symbols)
+    if (v.logical)     chart.timeScale().setVisibleLogicalRange(v.logical);
+    if (v.oscLogical)  chartOsc.timeScale().setVisibleLogicalRange(v.oscLogical);
+
+    // Optional: restore vertical zoom if your build supports it
+    if (v.priceRange && Number.isFinite(v.priceRange.min) && Number.isFinite(v.priceRange.max)) {
+      // Turn off autoscale, then apply the stored price range.
+      chart.priceScale('right')?.setMode?.({ autoScale: false });
+      chart.priceScale('right')?.setPriceRange?.({ ...v.priceRange });
+    }
+  } catch {}
+}
+
+// Keep the snapshot fresh whenever you pan/zoom either pane
+chart.timeScale().subscribeVisibleLogicalRangeChange(snapshotViewport);
+chartOsc.timeScale().subscribeVisibleLogicalRangeChange(snapshotViewport);
+
+// (optional) also snapshot when the user vertical-zooms (if supported)
+chart.priceScale('right')?.subscribeVisiblePriceRangeChange?.(snapshotViewport);
+
   // Osc series: histogram centered at 0
   const oscSeries = chartOsc.addHistogramSeries({ priceFormat:{ type:'price', precision: 4, minMove: 0.0001 }, base: 0, });
   // Bands + zero line
@@ -1269,6 +1316,14 @@ INFO.sym.textContent = toUiSymbol(symbol);
       bandDnSeries.setData(bandDn);
       zeroLine.setData(osc.map(d => ({ time:d.time, value:0 })));
 
+// Try to restore the previous viewport (zoom/scroll) across loads
+restoreViewport();
+
+// If this is the very first load and there's no snapshot yet, seed it now
+if (!window.CYCLA.VIEW?.logical) {
+  snapshotViewport();
+}
+
 // Single source of truth for last close on this load
 const lastClose = smftBars.at(-1)?.close;
 if (Number.isFinite(+lastClose)) {
@@ -1307,7 +1362,7 @@ try {
       current.smftState = state;
 
       // Align panes and fit
-      chart.timeScale().fitContent();
+     // chart.timeScale().fitContent();
       syncFromAtoB(chart, chartOsc);
 
       // Fetch instrument meta name (optional)
