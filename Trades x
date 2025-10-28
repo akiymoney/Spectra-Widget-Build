@@ -20,7 +20,10 @@
 
     <!-- Third HUD: Active Trades (233x144) -->
     <section class="tp-hud tp-active" aria-labelledby="hdr-active">
-      <header class="tp-hdr" id="hdr-active">Active Trades</header>
+      <header class="tp-hdr" id="hdr-active">
+        Active Trades
+        <button id="tp-active-clear" class="tp-ico-btn" title="Clear Active Trades" aria-label="Clear Active Trades">✕</button>
+      </header>
       <div class="tp-list" id="tp-active-list" role="listbox" aria-label="Active Trades"></div>
     </section>
 
@@ -31,10 +34,10 @@
 
     <!-- Bottom row: AUTO / BUY / SELL / KS (each 34x34) -->
     <div class="tp-toolbar" role="toolbar" aria-label="Trade controls">
-      <button id="tp-auto" class="tp-btn" title="AUTO" aria-pressed="false">🤖</button>
-      <button id="tp-buy"  class="tp-btn" title="BUY">B</button>
-      <button id="tp-sell" class="tp-btn" title="SELL">S</button>
-      <button id="tp-ks"   class="tp-btn" title="Kill Switch">⏻</button>
+      <button id="tp-auto" class="tp-btn" title="AUTO (printed arrows on Active)" aria-pressed="false">🤖</button>
+      <button id="tp-buy"  class="tp-btn" title="BUY (uses currently displayed chart symbol)">B</button>
+      <button id="tp-sell" class="tp-btn" title="SELL (uses currently displayed chart symbol)">S</button>
+      <button id="tp-ks"   class="tp-btn" title="Kill Switch" aria-pressed="false">⏻</button>
     </div>
   </div>
 </div>
@@ -80,10 +83,19 @@
 
   .tp-list{ height:calc(100% - 24px); padding:6px; overflow:auto; }
   .tp-row{
-    display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center;
+    display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:center;
     padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
     border:1px solid rgba(10,20,40,.12); font-weight:800; color:#1b2a4a;
   }
+  .tp-row .led{
+    width:8px; height:8px; border-radius:999px; border:1px solid rgba(10,20,40,.18);
+    background:#dbe2ef;
+  }
+  .led--idle{    background:#dbe2ef; }
+  .led--pending{ background:#f5d000; }
+  .led--ok{      background:#19c37d; }
+  .led--fail{    background:#e11d48; }
+
   .tp-row .tf{ font-size:10px; font-weight:800; opacity:.8; padding:2px 6px; border-radius:999px; border:1px solid rgba(10,20,40,.12); }
   .tp-row .sym{ font-weight:900; }
   .tp-row .rm{ width:18px; height:18px; border-radius:6px; border:1px solid rgba(10,20,40,.14); background:#f8fafc; font-weight:800; cursor:pointer; }
@@ -103,6 +115,43 @@
     width:34px; height:34px; min-width:34px; min-height:34px; cursor:pointer;
     border-radius:10px; border:1px solid rgba(10,20,40,.14); background:rgba(255,255,255,.95);
     box-shadow:0 13px 21px rgba(8,16,40,.18); font-weight:800; display:flex; align-items:center; justify-content:center;
+    transition: box-shadow .25s, transform .18s, border-color .25s, background .25s;
+  }
+
+  /* ——— Button glow system ——— */
+  .tp-btn:hover{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 0 2px rgba(0,140,255,.12) inset;
+  }
+  /* Busy pulse (applied while a click is processing) */
+  .tp-btn[data-busy="true"]{
+    animation: tp-busy 1.2s ease-in-out infinite;
+    border-color: rgba(0,140,255,.35);
+  }
+  @keyframes tp-busy{
+    0%   { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 8px rgba(0,140,255,.35); }
+    50%  { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 20px rgba(0,140,255,.7); }
+    100% { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 8px rgba(0,140,255,.35); }
+  }
+  /* Success / Fail flash (clears automatically) */
+  .tp-btn[data-state="ok"]{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(25,195,125,.7);
+    border-color:rgba(25,195,125,.6);
+  }
+  .tp-btn[data-state="fail"]{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(225,29,72,.7);
+    border-color:rgba(225,29,72,.6);
+  }
+  /* Toggle glows (AUTO/KS pressed) */
+  #tp-auto[aria-pressed="true"],
+  #tp-ks[aria-pressed="true"]{
+    background: radial-gradient(circle at 50% 40%, #ffffff 0%, #e9f7ff 45%, #d7f0ff 70%, #ffffff 100%);
+    border-color: rgba(0,140,255,.45);
+    box-shadow: 0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(0,140,255,.55);
+    transform: translateZ(0) scale(1.03);
+  }
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .tp-btn[data-busy="true"]{ animation:none; }
   }
 </style>
 
@@ -111,13 +160,12 @@
   const ROOT = document.getElementById('cycla-trades-widget');
 
   // ───────────────────────── config ─────────────────────────
-  // IMPORTANT: If this page is served over HTTPS, RELAY_BASE must also be HTTPS.
-  // e.g., "https://spectra-relay.onrender.com"
-  const RELAY_BASE    = (window.CYCLA && window.CYCLA.RELAY_BASE) || "https://spectra-trade-bot.onrender.com";
+  const RELAY_BASE    = (window.CYCLA && (window.CYCLA.RELAY || window.CYCLA.RELAY_BASE)) || "https://spectra-trade-bot.onrender.com";
   const STEP_SECONDS  = 5;
-  const BUY_QTY_MODE  = "notional";
-  const NOTIONAL_USD  = 3; // your value
-  const POLL_MS       = 1500;
+  const NOTIONAL_USD  = Number(window?.CYCLA?.ORDER_USD ?? 3);
+
+window.CYCLA = window.CYCLA || {};
+window.CYCLA.STEP_SECONDS = STEP_SECONDS;
 
   // ───────────────────────── shared bus ─────────────────────
   window.CYCLA = window.CYCLA || {};
@@ -134,24 +182,19 @@
   const BTN_SELL = document.getElementById('tp-sell');
   const BTN_KS   = document.getElementById('tp-ks');
   const BTN_WCLR = document.getElementById('tp-watch-clear');
+  const BTN_ACLR = document.getElementById('tp-active-clear');
 
   // ───────────────────────── local state ─────────────────────
   let AUTO = false;
-  const watch  = new Map();
-  const active = new Map();
+  let KS   = false;
 
-  let chartSymbolUI = "BTCUSD";
-  let chartTF = "1m";
-  let lastChartPrice = null;
+  const watch  = new Map();  // key: "BTCUSD" -> { sym, tf }
+  const active = new Map();  // key: "BTCUSD" -> { sym, tf, led:'idle' }
 
-  const sameOrigin = (() => {
-    try { return new URL(RELAY_BASE, location.href).origin === location.origin; }
-    catch { return false; }
-  })();
+  // Fallback memory (still updated by chart events but NOT required)
+  const CURRENT = { uiSym: '', tf: '' };
 
-  // If you don't need cookies, omit credentials to simplify CORS.
-  const COMMON_FETCH = { mode: sameOrigin ? 'same-origin' : 'cors', credentials: 'omit' };
-
+  // Utilities
   const uiToRelay = (s) => {
     const S = String(s||"").trim().toUpperCase();
     if (!S) return "";
@@ -164,237 +207,371 @@
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail: { level, msg: `[${code}] ${msg}` }}));
   }
 
+  // Button flash helpers (glow states)
+  function setBusy(btn, on){ btn?.setAttribute('data-busy', on?'true':'false'); if(!on) btn?.removeAttribute('data-busy'); }
+  function flash(btn, state){ if(!btn) return; btn.setAttribute('data-state', state); setTimeout(()=>btn.removeAttribute('data-state'), 900); }
+
+  // ────────── Chart discovery (no click required) ──────────
+  // Try multiple sources at click-time; fall back to last event memory.
+function getChartSnapshot(){
+  // 1) Ask the chart directly if available
+  if (typeof window?.CYCLA?.getDisplayed === 'function') {
+    const g = window.CYCLA.getDisplayed() || {};
+    const uiSym = String(g.symbol||'').toUpperCase().replace(/[^\w]/g,'');
+    const tf    = String(g.tf||'').toUpperCase();
+    if (uiSym) return { uiSym, tf };
+  }
+
+  // 2) Read common globals the chart may set
+  const uiSym2 = String(
+    window?.CYCLA?.currentSymbol ||
+    window?.CYCLA?.symbol ||
+    window?.CYCLA?.chart?.symbol ||
+    window?.CYCLA?.LAST?.symbol || ''
+  ).toUpperCase().replace(/[^\w]/g,'');
+  const tf2 = String(
+    window?.CYCLA?.currentTF ||
+    window?.CYCLA?.tf ||
+    window?.CYCLA?.chart?.tf ||
+    window?.CYCLA?.LAST?.tf || ''
+  ).toUpperCase();
+  if (uiSym2) return { uiSym: uiSym2, tf: tf2 };
+
+  // 3) Try DOM data-* on the chart root
+  const root = document.querySelector('#cycla-chart-widget,[data-cycla-chart]');
+  if (root) {
+    const s = String(root.getAttribute('data-symbol')||'').toUpperCase().replace(/[^\w]/g,'');
+    const t = String(root.getAttribute('data-tf')||'').toUpperCase();
+    if (s) return { uiSym: s, tf: t };
+  }
+
+  // 4) Give up — trades ECU will message clearly
+  return { uiSym:'', tf:'' };
+}
+
+  // Optional chart events (kept for sync/update but not required)
+  window.CYCLA.bus.addEventListener('cycla:load', (e)=>{
+    const { symbol, tf } = e.detail || {};
+    if (symbol) CURRENT.uiSym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
+    if (tf)     CURRENT.tf    = String(tf).toUpperCase();
+  });
+  window.CYCLA.bus.addEventListener('cycla:chart:symbol', (e)=>{
+    const { symbol } = e.detail || {};
+    if (symbol) CURRENT.uiSym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
+  });
+  window.CYCLA.bus.addEventListener('cycla:chart:tf', (e)=>{
+    const { tf } = e.detail || {};
+    if (tf) CURRENT.tf = String(tf).toUpperCase();
+  });
+
+  // ───────────────────────── renderers ───────────────────────
   function rowFor({ sym, tf }, canRemove=true){
     const row = document.createElement('div');
     row.className = 'tp-row';
-    const left = document.createElement('div');
-    const right = document.createElement('div');
+
+    const led = document.createElement('div');
+    led.className = 'led led--idle';
+    led.dataset.symbol = sym;
+
+    const label = document.createElement('div');
     const symEl = document.createElement('span'); symEl.className='sym'; symEl.textContent = sym;
-    const tfEl  = document.createElement('span'); tfEl.className='tf';  tfEl.textContent  = tf;
-    left.appendChild(symEl); left.appendChild(document.createTextNode(' ')); left.appendChild(tfEl);
+    const tfEl  = document.createElement('span'); tfEl.className='tf';  tfEl.textContent  = tf || '';
+    label.appendChild(symEl); label.appendChild(document.createTextNode(' ')); label.appendChild(tfEl);
+
+    const right = document.createElement('div');
     if (canRemove){
       const rm = document.createElement('button');
       rm.className = 'rm'; rm.title = 'Remove'; rm.textContent = '–';
-      rm.addEventListener('click', ()=>{ watch.delete(sym); renderWatch(); ecu('warn','TW-WARN-210',`Removed ${sym} from Watchlist.`); });
+      rm.addEventListener('click', ()=>{
+        watch.delete(sym);
+        active.delete(sym);
+        renderAll();
+        ecu('warn','TW-WARN-210',`Removed ${sym}.`);
+      });
       right.appendChild(rm);
     }
-    row.appendChild(left); row.appendChild(right);
+
+    row.appendChild(led);
+    row.appendChild(label);
+    row.appendChild(right);
     return row;
   }
   function renderWatch(){ W_LIST.innerHTML = ''; for(const v of watch.values()) W_LIST.appendChild(rowFor(v,true)); }
   function renderActive(){ A_LIST.innerHTML = ''; for(const v of active.values()) A_LIST.appendChild(rowFor(v,false)); }
+  function renderAll(){ renderWatch(); renderActive(); }
 
-  // ───────────────────────── chart wiring ────────────────────
-  window.CYCLA.bus.addEventListener('cycla:chart:context', (e)=>{
-    const d = (e && e.detail) || {};
-    if (d.symbol) chartSymbolUI = String(d.symbol).toUpperCase().replace(/[^\w-]/g,'');
-    if (d.tf) chartTF = String(d.tf);
-    if (Number.isFinite(Number(d.last))) lastChartPrice = Number(d.last);
-  });
+  // Watchlist intake (still available)
   window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
-    const { symbol='', tf='1m' } = (e && e.detail) || {};
-    if (!symbol) { ecu('err','TW-ERR-400','Empty symbol from chart.'); return; }
+    const { symbol, tf } = e.detail || {};
+    if (!symbol) return;
     const sym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
-    watch.set(sym, { sym, tf }); renderWatch();
-    ecu('ok','TW-OK-102', `Added ${sym} (${tf}) to Watchlist.`);
+    watch.set(sym, { sym, tf: (tf||'') });
+    renderWatch();
+  });
+  W_LIST.addEventListener('click', (ev)=>{
+    const node = ev.target.closest('.tp-row'); if(!node) return;
+    const text = node.querySelector('.sym')?.textContent || '';
+    const tf   = node.querySelector('.tf')?.textContent || '';
+    if (!text) return;
+    active.set(text, { sym:text, tf, led:'idle' });
+    renderActive();
+  });
+  BTN_WCLR.addEventListener('click', ()=>{ watch.clear(); renderWatch(); });
+  BTN_ACLR.addEventListener('click', ()=>{ active.clear(); renderActive(); });
+
+  // LED updates
+  function setLed(sym, state){
+    const led = A_LIST.querySelector(`.led[data-symbol="${sym}"]`);
+    if (!led) return;
+    led.className = 'led';
+    led.classList.add(
+      state === 'pending' ? 'led--pending' :
+      state === 'ok'      ? 'led--ok'      :
+      state === 'fail'    ? 'led--fail'    : 'led--idle'
+    );
+  }
+  window.CYCLA.bus.addEventListener('cycla:order:status', (e)=>{
+    const { symbol, status } = e.detail || {};
+    if (!symbol) return;
+    setLed(symbol.toUpperCase().replace(/[^\w]/g,''), status);
   });
 
-  // ───────────────────────── relay I/O ───────────────────────
-  async function jget(path){
-    const url = `${RELAY_BASE}${path}`;
-    let r;
-    try {
-      r = await fetch(url, { ...COMMON_FETCH, method:'GET', headers:{ 'Accept':'application/json' } });
-    } catch (e) {
-      throw netFail(url, e);
-    }
-    if (!r.ok) throw httpFail(url, r);
-    return r.json();
+  // ───────────────────────── helpers ─────────────────────────
+  async function chooseQtyForSidePx(side, refPx){
+    if (String(side).toUpperCase()==='SELL') return 'ALL';
+    const usd = NOTIONAL_USD > 0 ? NOTIONAL_USD : 3;
+    return usd / Math.max(1e-9, Number(refPx||1));
   }
-  async function jpost(path, body){
-    const url = `${RELAY_BASE}${path}`;
-    let r, j;
-    try {
-      r = await fetch(url, {
-        ...COMMON_FETCH,
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-        body: JSON.stringify(body)
-      });
-      j = await r.json().catch(()=> ({}));
-    } catch (e) {
-      throw netFail(url, e);
-    }
-    if (!r.ok) throw new Error(`${j.error || j.backend_status || r.statusText || ('HTTP '+r.status)}`);
-    return j;
+  async function postOrder(body){
+    return fetch(`${RELAY_BASE}/order`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
   }
-  function netFail(url, err){
-    const httpsPage = location.protocol === 'https:';
-    const httpRelay = /^http:/.test(url);
-    if (httpsPage && httpRelay) return new Error('mixed_content: Page is HTTPS but RELAY_BASE is HTTP. Use HTTPS relay.');
-    return new Error(`network_error: ${err && err.message ? err.message : 'fetch failed'}`);
-  }
-  function httpFail(url, r){
-    // If it’s a 404/405 on POST, it’s almost certainly wrong path or CORS preflight blocked server.
-    if (r.status === 404) return new Error('path_not_found: check /order, /status routes.');
-    if (r.status === 405) return new Error('method_not_allowed: server not accepting POST (or OPTIONS).');
-    return new Error(`HTTP_${r.status}: ${r.statusText}`);
-  }
-
-  async function resolvePxFor(side, relaySym, qtyHint){
-    if (Number.isFinite(lastChartPrice) && lastChartPrice > 0) return lastChartPrice;
-    const q = qtyHint && Number.isFinite(Number(qtyHint)) ? `&qty=${encodeURIComponent(qtyHint)}` : '';
-    const book = await jget(`/dbg/book?symbol=${encodeURIComponent(relaySym)}${q}`);
-    const px = side === 'BUY' ? Number(book.est_ask_for_qty || book.ask) : Number(book.est_bid_for_qty || book.bid);
-    if (!Number.isFinite(px) || px <= 0) throw new Error('price_unavailable');
-    return px;
-  }
-
-  async function resolveBuyQtyFromNotional(relaySym, notionalUsd){
-    const dbg = await jget(`/dbg/holdings?symbol=${encodeURIComponent(relaySym)}`);
-    const step = Number(dbg.min_qty || 0);
-    if (!Number.isFinite(step) || step <= 0) throw new Error('min_qty_unavailable');
-
-    let ask = NaN;
+  async function refPriceFor(side, uiSym){
+    const px = Number(window?.CYCLA?.lastPrice);
+    if (Number.isFinite(px) && px > 0) return px;
     try{
-      const b = await jget(`/dbg/book?symbol=${encodeURIComponent(relaySym)}`);
-      ask = Number(b.est_ask_for_qty || b.ask || NaN);
+      const r = await fetch(`${RELAY_BASE}/dbg/book?symbol=${encodeURIComponent(uiToRelay(uiSym))}`);
+      const j = await r.json();
+      if (j && j.ok){
+        if (String(side).toUpperCase()==='BUY')  return Number(j.ask) || Number(j.est_ask_for_qty) || 1;
+        if (String(side).toUpperCase()==='SELL') return Number(j.bid) || Number(j.est_bid_for_qty) || 1;
+      }
     }catch{}
-    if (!Number.isFinite(ask) || ask <= 0) {
-      if (Number.isFinite(lastChartPrice) && lastChartPrice > 0) ask = lastChartPrice;
-      else throw new Error('ask_unavailable');
-    }
-
-    const rawQ = notionalUsd / ask;
-    let steps = Math.floor(rawQ / step);
-    if (steps < 1) steps = 1;
-    const qty = Number((steps * step).toFixed(12));
-    if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty_computation_failed');
-    return qty;
+    return 1;
+  }
+  function ensureActiveRow(sym, tf){
+    if (!active.has(sym)) { active.set(sym, { sym, tf: (tf||''), led:'idle' }); renderActive(); }
   }
 
-  async function resolveBuyQtyMin(relaySym){
-    const dbg = await jget(`/dbg/holdings?symbol=${encodeURIComponent(relaySym)}`);
-    const min = Number(dbg.min_qty || 0);
-    if (!Number.isFinite(min) || min <= 0) throw new Error('min_qty_unavailable');
-    return min;
+// ==== PATCH 1: expose helpers for AUTO ====
+window.CYCLA.chooseQtyForSidePx = (uiSym, side, refPx) => chooseQtyForSidePx(side, refPx);
+
+window.CYCLA.manualOrder = async (body) => {
+  try {
+    const r = await fetch(`${RELAY_BASE}/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return r.ok;
+  } catch {
+    return false;
   }
+};
 
-  async function placeOrder({ uiSym, side }){
-    const relaySym = uiToRelay(uiSym);
-    if (!relaySym) throw new Error('bad_symbol');
+// ==== /PATCH 1 ====
 
-    let size;
-    if (side === 'BUY'){
-      size = (BUY_QTY_MODE === 'notional')
-        ? await resolveBuyQtyFromNotional(relaySym, NOTIONAL_USD)
-        : await resolveBuyQtyMin(relaySym);
-    } else {
-      size = "ALL";
-    }
-
-    const px = await resolvePxFor(side, relaySym, (side==='BUY'?size:undefined));
-    const payload = { symbol: relaySym, side, price: px, size, seconds: STEP_SECONDS };
-
-    const res = await jpost('/order', payload);
-    const act = String(res?.backend_status || res?.result?.action || '');
-    const filled = Number(res?.result?.filled || 0);
-    const avgPx  = Number(res?.result?.avg_price || px);
-
-    const key = uiSym.toUpperCase().replace(/[^\w]/g,'');
-    if (!active.has(key)) { active.set(key, { sym:key, tf:chartTF }); renderActive(); }
-
-    ecu(res.ok ? 'ok' : 'err', res.ok ? 'TW-OK-120' : 'TW-ERR-420',
-        `${side} ${relaySym} • ${act} • qty=${filled || size} @ ~${avgPx}`);
-
-    await refreshHudOnce(relaySym).catch(()=>{});
-  }
-
-  // ───────────────────────── HUD ─────────────────────────────
-  async function refreshHudOnce(relaySym){
-    const sym = relaySym || uiToRelay(chartSymbolUI);
-
-    let bid=NaN, ask=NaN;
-    try{
-      const b = await jget(`/dbg/book?symbol=${encodeURIComponent(sym)}`);
-      bid = Number(b.est_bid_for_qty || b.bid || NaN);
-      ask = Number(b.est_ask_for_qty || b.ask || NaN);
-    }catch{}
-
-    let curQty = 0, minQty = 0, holdingsCount = 0;
-    try{
-      const h = await jget(`/dbg/holdings?symbol=${encodeURIComponent(sym)}`);
-      minQty = Number(h.min_qty || 0);
-      holdingsCount = Array.isArray(h.all_holdings) ? h.all_holdings.length : 0;
-      const row = h.holding_row || {};
-      curQty =
-        Number(row.quantity_available_for_trading ?? row.available_asset_quantity ?? row.asset_quantity ?? row.total_quantity ?? row.quantity ?? 0) || 0;
-    }catch{}
-
-    const estBuyUsd  = NOTIONAL_USD;
-    const estSellUsd = Number.isFinite(curQty) && Number.isFinite(bid) && curQty>0 && bid>0 ? (curQty*bid) : NaN;
-
-    const l1 = `BUY: ${prettyUsd(estBuyUsd)}  •  SELL: ${prettyUsd(estSellUsd)}  •  SYM: ${sym}`;
-    const l2 = `Holdings(${holdingsCount}) • ${sym.split('-')[0]} qty ${curQty} • Bid ${prettyUsd(bid)} • Ask ${prettyUsd(ask)} • Notional ${prettyUsd(NOTIONAL_USD)}`;
-
-    PL_BOX.innerHTML = `<div>${l1}</div><div class="tp-info-marquee" style="margin-top:4px;">${l2}</div>`;
-  }
-
-  // ───────────────────────── controls ────────────────────────
-  BTN_WCLR.addEventListener('click', ()=>{ watch.clear(); renderWatch(); ecu('warn','TW-WARN-211','Watchlist cleared.'); });
-
-  BTN_AUTO.addEventListener('click', ()=>{
-    AUTO = !AUTO; BTN_AUTO.setAttribute('aria-pressed', AUTO ? 'true' : 'false');
-    if (AUTO){
-      for (const [k, v] of watch.entries()) active.set(k, v);
-      watch.clear(); renderWatch(); renderActive();
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
-      ecu('ok','TW-OK-101','AUTO started. Watchlist → Active.');
-    }else{
-      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-      ecu('warn','TW-WARN-201','AUTO stopped.');
-    }
-  });
-
-  BTN_BUY.addEventListener('click', async ()=>{
-    try { await placeOrder({ uiSym: chartSymbolUI, side: 'BUY' }); }
-    catch(err){ ecu('err','TW-ERR-421', `BUY failed: ${String(err.message||err)}`); }
-  });
-
-  BTN_SELL.addEventListener('click', async ()=>{
-    try { await placeOrder({ uiSym: chartSymbolUI, side: 'SELL' }); }
-    catch(err){ ecu('err','TW-ERR-422', `SELL failed: ${String(err.message||err)}`); }
-  });
-
-  BTN_KS.addEventListener('click', async ()=>{
-    try { await jpost('/killswitch', {}); } catch {}
-    AUTO = false; BTN_AUTO.setAttribute('aria-pressed','false');
-    watch.clear(); active.clear(); renderWatch(); renderActive();
-    PL_BOX.textContent = '—';
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
-    ecu('err','TW-ERR-401','Kill Switch pressed: HUDs reset. (Server KS ON)');
-  });
-
-  // ───────────────────────── connectivity probe ──────────────
-  async function probe(){
-    const isHttpsPage = location.protocol === 'https:';
-    if (isHttpsPage && /^http:/.test(RELAY_BASE)) {
-      ecu('err','TW-ERR-601','Mixed content: set window.CYCLA.RELAY_BASE to your HTTPS relay URL.');
+  // ───────────────────────── manual BUY/SELL (no chart click required) ──────
+  async function manualOrder(side, btn){
+    const snap = getChartSnapshot();
+    const uiSym = snap.uiSym;
+    const tf    = snap.tf;
+    if (!uiSym){
+      flash(btn,'fail');
+      ecu('err','TW-NOCHART-002','No displayed chart symbol detected. Ensure the chart is visible.');
       return;
     }
+
+    ensureActiveRow(uiSym, tf);
+    setLed(uiSym, 'pending');
+    setBusy(btn, true);
+
+    const price = await refPriceFor(side, uiSym);
+    const size  = await chooseQtyForSidePx(side, price);
+    const body  = { symbol: uiToRelay(uiSym), side, price, size, seconds: STEP_SECONDS };
+
+    ecu('ok','TW-MAN-INIT',`Manual ${side} • ${uiSym}${tf?` • ${tf}`:''} • px≈${price} • size=${typeof size==='string'?size:size.toFixed(8)}`);
+
     try{
-      const j = await jget('/status');
-      if (!j || j.ok !== true) ecu('warn','TW-WARN-602','Relay /status reachable but not ok:true.');
-      else ecu('ok','TW-OK-600',`Relay OK • auto=${j.auto} • ks=${j.ks ?? false}`);
-    }catch(e){
-      ecu('err','TW-ERR-603',`Relay unreachable: ${e.message}`);
+      const r = await postOrder(body);
+      const ok = r.ok;
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', { detail:{ symbol: uiSym, status: ok?'ok':'fail' } }));
+      if (!ok){
+        let j={}; try{ j = await r.json(); }catch{}
+        flash(btn,'fail');
+        ecu('err','TW-ORD-400',`Manual ${side} ${uiSym} failed: ${j?.backend_status || r.status}`);
+      }else{
+        flash(btn,'ok');
+        ecu('ok','TW-ORD-200',`Manual ${side} ${uiSym} placed @ ~${price}.`);
+      }
+    }catch(err){
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', { detail:{ symbol: uiSym, status:'fail' } }));
+      flash(btn,'fail');
+      ecu('err','TW-ORD-500', String(err?.message||err));
+    }finally{
+      setBusy(btn, false);
     }
   }
+  BTN_BUY .addEventListener('click', ()=>manualOrder('BUY', BTN_BUY));
+  BTN_SELL.addEventListener('click', ()=>manualOrder('SELL', BTN_SELL));
 
-  // ───────────────────────── init ────────────────────────────
-  probe();
-  refreshHudOnce().catch(()=>{});
-  setInterval(()=>{ refreshHudOnce().catch(()=>{}); }, POLL_MS);
-  ecu('ok','TW-OK-100',`Trades widget ready. Relay wiring live (5s steps, BUY $${NOTIONAL_USD}).`);
+// AUTO engine lives here so AUTO == manual buttons
+const BUS = (window.CYCLA = window.CYCLA || {}).bus || new EventTarget();
+window.CYCLA.bus = BUS;
+
+// Opt-in flag controlled by your AUTO toggle button
+window.CYCLA.AUTO_ENABLED = window.CYCLA.AUTO_ENABLED ?? false;
+
+// Helper: same symbol/T F freeze you already keep
+function tfFrozenOk(uiSym, tf){
+  try {
+    const frozen = (window.CYCLA.tfBySymbol || {})[uiSym];
+    return !frozen || String(frozen).toUpperCase() === String(tf).toUpperCase();
+  } catch { return true; }
+}
+
+// Convert “BTCUSD” → “BTC-USD” for the relay
+function toProductId(sym){
+  const s = String(sym||'').toUpperCase().replace(/[\/\s]/g,'');
+  if (s.includes('-')) return s;
+  const QUOTES = ['USDC','USD','EUR','GBP'];
+  for (const q of QUOTES){
+    if (s.endsWith(q) && s.length > q.length){
+      return s.slice(0, -q.length) + '-' + q;
+    }
+  }
+  return s;
+}
+
+// Listen to chart markers (BUY/SELL) and route like the buttons do
+BUS.addEventListener('cycla:signal', async (e) => {
+  if (!window.CYCLA.AUTO_ENABLED) return;
+
+  const { symbol, side, tf, time, price } = e.detail || {};
+  // symbol here is UI form “BTCUSD” (that’s how we emit it from chart)
+  const uiSym = String(symbol||'').toUpperCase().replace(/[^\w]/g,'');
+
+// only trade symbols that are in the Active list
+if (!active.has(uiSym)) return;
+
+// only act on fully printed markers
+const printed =
+  (e?.detail?.printed === true) ||
+  (Number(e?.detail?.progress) >= 1) ||
+  (e?.detail?.from === 'chart' && e?.detail?.closeOnly === true);
+if (!printed) return;
+
+  // respect per-symbol TF lock
+  if (!tfFrozenOk(uiSym, tf)) return;
+
+  // Use the SAME code path as the manual buttons:
+  try {
+
+    // compute qty with your existing helper (identical to buttons)
+const refPx = Number(price);
+
+const qty = await window.CYCLA.chooseQtyForSidePx(uiSym, side, refPx);
+const qtyOk = (qty === 'ALL') || (Number.isFinite(qty) && qty > 0);
+if (!qtyOk) return;
+
+    // build request same as manual button does
+    const body = {
+      symbol: toProductId(uiSym),
+      side,
+      price: refPx,
+      size:  qty,
+seconds: window.CYCLA.STEP_SECONDS ?? STEP_SECONDS,
+      client_order_id: `${uiSym}-${tf}-${time}-${side}`
+    };
+
+    // HUD pending (same event your buttons fire)
+    BUS.dispatchEvent(new CustomEvent('cycla:order:status', {
+      detail: { symbol: uiSym, status: 'pending' }
+    }));
+
+    // call the same post function you use for buttons
+    const ok = await window.CYCLA.manualOrder(body); // ← reuse your existing function
+
+    BUS.dispatchEvent(new CustomEvent('cycla:order:status', {
+      detail: { symbol: uiSym, status: ok ? 'ok' : 'fail' }
+    }));
+  } catch (err) {
+    console.warn('[AUTO→manualOrder] failed:', err);
+    BUS.dispatchEvent(new CustomEvent('cycla:order:status', {
+      detail: { symbol: uiSym, status: 'fail' }
+    }));
+  }
+});
+
+// Let others know Trades is ready (optional)
+BUS.dispatchEvent(new CustomEvent('cycla:trades:ready'));
+
+  // ───────────────────────── AUTO (🤖) — printed markers only ───────────────
+  function autoOn(){
+    AUTO = true;
+ window.CYCLA.AUTO_ENABLED = true;  
+   BTN_AUTO.setAttribute('aria-pressed','true');
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:start'));
+    ecu('ok','TW-AUTO-200','AUTO engaged. Listening for fully printed arrows on all Active symbols.');
+  }
+  function autoOff(){
+    AUTO = false;
+window.CYCLA.AUTO_ENABLED = false;  
+  BTN_AUTO.setAttribute('aria-pressed','false');
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:auto:stop'));
+    ecu('warn','TW-AUTO-201','AUTO stopped.');
+  }
+  BTN_AUTO.addEventListener('click', ()=>{
+    setBusy(BTN_AUTO, true);
+    AUTO ? autoOff() : autoOn();
+    setTimeout(()=>setBusy(BTN_AUTO,false), 150);
+  });
+
+  // ───────────────────────── Kill Switch wiring ──────────────
+  async function refreshKS(){
+    try{
+      const r = await fetch(`${RELAY_BASE}/status`);
+      const j = await r.json();
+      KS = !!j.ks;
+      BTN_KS.setAttribute('aria-pressed', KS ? 'true' : 'false');
+      BTN_KS.title = KS ? 'Kill Switch (ON)' : 'Kill Switch (OFF)';
+    }catch{}
+  }
+  refreshKS();
+
+  BTN_KS.addEventListener('click', async ()=>{
+    setBusy(BTN_KS, true);
+    try{
+      const path = KS ? '/killswitch/reset' : '/killswitch';
+      const r = await fetch(`${RELAY_BASE}${path}`, { method:'POST' });
+      const j = await r.json().catch(()=>({}));
+      KS = !!j.ks;
+      BTN_KS.setAttribute('aria-pressed', KS ? 'true' : 'false');
+      ecu(KS?'warn':'ok', KS?'TW-KS-ON':'TW-KS-OFF', KS?'KS enabled. All trading blocked.':'KS disabled. Trading allowed.');
+      BTN_KS.title = KS ? 'Kill Switch (ON)' : 'Kill Switch (OFF)';
+      flash(BTN_KS, KS?'fail':'ok');
+    }catch(err){
+      flash(BTN_KS,'fail');
+      ecu('err','TW-KS-ERR', String(err?.message||err));
+    }finally{
+      setBusy(BTN_KS, false);
+    }
+  });
+
+  // ───────────────────────── init ─────────────────────────────
+  ecu('ok','TW-READY-000','Ready.');
 })();
 </script>
