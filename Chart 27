@@ -4,7 +4,8 @@
      role="region"
      aria-label="Cycla Spectra"
      data-td-key="1079f6f5cca04a5f9f2849e3f7119a30"
-     data-default-tf="15m">
+     data-default-tf="15m"
+     data-default-symbol="BTCUSD">
 
     <!-- Widget label -->
     <div class="cp-label">CYCLA Spectra</div>
@@ -214,6 +215,7 @@
 const ROOT  = document.getElementById('cycla-chart-widget');
 const TD_KEY = ROOT.getAttribute('data-td-key') || '';
 const DEFAULT_TF = (ROOT.getAttribute('data-default-tf') || '15m').trim();
+const DEFAULT_SYMBOL = (ROOT.getAttribute('data-default-symbol') || 'BTCUSD').trim();
 
 // Shared namespace + bus (single source of truth)
 window.CYCLA = window.CYCLA || {};
@@ -546,8 +548,6 @@ const tf = window.CYCLA.currentTF || DEFAULT_TF;
     }));
   }
 });
-
-const DEFAULT_SYMBOL = 'BTCUSD';
 
   // ► TZ PATCH: force all displayed times to Houston, TX (America/Chicago)
   const TIMEZONE = 'America/Chicago';
@@ -1546,7 +1546,7 @@ SEARCH.addEventListener('keydown', (e)=>{
 
 // Close the TF menu when clicking outside it
 document.addEventListener('click', (e) => {
-  if (!TF_MENU.contains(e.target) && e.target !== TF_BTN) {
+  if (TF_MENU && !TF_MENU.contains(e.target) && e.target !== TF_BTN) {
     TF_MENU.classList.add('cp-dd--hidden');
   }
 });
