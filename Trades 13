@@ -1,0 +1,672 @@
+<!-- CYCLA • Trades Panel (233x523) • P/L • Watchlist • Active Trades • Info banner • ALERTS • BUY/SELL/KS -->
+<div id="cycla-trades-center" style="--block-h:523px;">
+  <div id="cycla-trades-widget" role="region" aria-label="CYCLA Trades Panel">
+    <div class="tp-label" aria-hidden="true">Cycla Trades</div>
+
+    <!-- Top HUD: P/L (233x89) -->
+    <section class="tp-hud tp-pl" aria-label="P/L">
+      <header class="tp-hdr">P/L</header>
+      <div class="tp-pl-body" id="tp-pl-body" aria-live="polite" role="status">—</div>
+    </section>
+
+    <!-- Second HUD: Watchlist (233x144) -->
+    <section class="tp-hud tp-watch" aria-labelledby="hdr-watch">
+      <header class="tp-hdr" id="hdr-watch">
+        Watchlist
+        <button id="tp-watch-clear" class="tp-ico-btn" title="Clear Watchlist" aria-label="Clear Watchlist">✕</button>
+      </header>
+      <div class="tp-list" id="tp-watch-list" role="listbox" aria-label="Watchlist"></div>
+    </section>
+
+    <!-- Third HUD: Active Trades (233x144) -->
+    <section class="tp-hud tp-active" aria-labelledby="hdr-active">
+      <header class="tp-hdr" id="hdr-active">
+        Active Trades
+        <button id="tp-active-clear" class="tp-ico-btn" title="Clear Active Trades" aria-label="Clear Active Trades">✕</button>
+      </header>
+      <div class="tp-list" id="tp-active-list" role="listbox" aria-label="Active Trades"></div>
+    </section>
+
+    <!-- Fourth HUD: Info banner (233x34) -->
+    <section class="tp-hud tp-info" aria-label="Info">
+      <div class="tp-info-marquee" id="tp-info-banner" aria-live="polite">Trades ECU: ready.</div>
+    </section>
+
+    <!-- NEW: Mini toolbar above bottom row (34px tall) -->
+    <div class="tp-mini" role="toolbar" aria-label="Alert controls">
+      <button id="tp-alerts" class="tp-btn" title="Alerts (Watchlist printed signals)" aria-pressed="false">🔔</button>
+    </div>
+
+    <!-- Bottom row: AUTO / BUY / SELL / KS (each 34x34) -->
+    <div class="tp-toolbar" role="toolbar" aria-label="Trade controls">
+      <button id="tp-buy"  class="tp-btn" title="BUY (uses currently displayed chart symbol)">B</button>
+      <button id="tp-sell" class="tp-btn" title="SELL (uses currently displayed chart symbol)">S</button>
+      <button id="tp-ks"   class="tp-btn" title="Kill Switch" aria-pressed="false">⏻</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  #cycla-trades-center *{ box-sizing:border-box; }
+  #cycla-trades-center{
+    width:100%; height:var(--block-h,523px);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto; padding:0; position:relative;
+  }
+  /* Root 233×523: glassy shell to match Screener */
+  #cycla-trades-widget{
+    position:relative;
+    width:233px; height:523px; margin:0 auto;
+    border-radius:12px; border:1px solid rgba(10,20,40,.12);
+    box-shadow:0 18px 55px rgba(8,16,40,.12), 0 2px 10px rgba(8,16,40,.08);
+    background:linear-gradient(180deg,#f6f9ff 0%,#eef6ff 100%);
+    font:12px/1.25 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#0b1220; overflow:hidden;
+  }
+  .tp-label{ position:absolute; top:6px; left:8px; font-weight:700; font-size:11px; color:#3b4a6b; opacity:.55; pointer-events:none; }
+
+  /* HUD shells */
+  .tp-hud{ position:absolute; left:6px; right:6px; border-radius:12px; border:1px solid rgba(10,20,40,.12); overflow:hidden; background:#fff; }
+  .tp-pl    { top:  6px; height: 89px; background:linear-gradient(180deg,#dceeff 0%, #cbe0fa 100%); }
+  .tp-watch { top: 97px; height:144px; background:linear-gradient(180deg,#e7f6ef 0%, #daf3e6 100%); }
+  .tp-active{ top:245px; height:144px; background:linear-gradient(180deg,#f5f3ff 0%, #ece9ff 100%); }
+  .tp-info  { top:393px; height: 34px; display:flex; align-items:center; justify-content:center;
+              background:rgba(255,255,255,.78); }
+
+  .tp-hdr{
+    height:24px; display:flex; align-items:center; justify-content:flex-start;
+    gap:6px; padding:0 8px; font-weight:800; color:#33415e; letter-spacing:.2px;
+    background:rgba(255,255,255,.72); border-bottom:1px solid rgba(10,20,40,.10);
+  }
+  .tp-ico-btn{
+    margin-left:auto; width:13px; height:13px; min-width:13px; min-height:13px;
+    border-radius:4px; border:1px solid rgba(10,20,40,.18); background:#fff; font-size:10px;
+    display:flex; align-items:center; justify-content:center; line-height:11px; cursor:pointer;
+  }
+  .tp-pl-body{ padding:8px; font-weight:800; color:#1b2a4a; }
+
+  .tp-list{ height:calc(100% - 24px); padding:6px; overflow:auto; }
+  .tp-row{
+    display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:center;
+    padding:6px; margin-bottom:6px; border-radius:8px; background:#fff;
+    border:1px solid rgba(10,20,40,.12); font-weight:800; color:#1b2a4a;
+    transition: box-shadow .25s, border-color .25s, background .25s;
+  }
+  .tp-row .led{
+    width:8px; height:8px; border-radius:999px; border:1px solid rgba(10,20,40,.18);
+    background:#dbe2ef;
+  }
+  .led--idle{    background:#dbe2ef; }
+  .led--pending{ background:#f5d000; }
+  .led--ok{      background:#19c37d; }
+  .led--fail{    background:#e11d48; }
+
+  .tp-row .tf{ font-size:10px; font-weight:800; opacity:.8; padding:2px 6px; border-radius:999px; border:1px solid rgba(10,20,40,.12); }
+  .tp-row .sym{ font-weight:900; }
+  .tp-row .rm{ width:18px; height:18px; border-radius:6px; border:1px solid rgba(10,20,40,.14); background:#f8fafc; font-weight:800; cursor:pointer; }
+
+  /* Info banner scrolling */
+  .tp-info-marquee{ width:100%; padding:0 8px; font-weight:800; color:#33415e; white-space:nowrap; overflow:hidden; }
+  .tp-info-marquee{ animation: tp-marq 16s linear infinite; }
+  @keyframes tp-marq{ from{ transform:translateX(0);} to{ transform:translateX(-100%);} }
+
+  /* NEW: Mini toolbar just above main toolbar */
+  .tp-mini{
+    position:absolute; bottom:46px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; align-items:center; justify-content:flex-start;
+    background:#fff; border:1px solid rgba(10,20,40,.14); border-radius:10px; padding:0 6px;
+  }
+
+  /* Bottom toolbar (34px tall), pinned */
+  .tp-toolbar{
+    position:absolute; bottom:6px; left:6px; right:6px; height:34px;
+    display:flex; gap:6px; align-items:center; justify-content:space-between;
+    background:#fff; border:1px solid rgba(10,20,40,.14); border-radius:10px; padding:0 6px;
+  }
+  .tp-btn{
+    width:34px; height:34px; min-width:34px; min-height:34px; cursor:pointer;
+    border-radius:10px; border:1px solid rgba(10,20,40,.14); background:rgba(255,255,255,.95);
+    box-shadow:0 13px 21px rgba(8,16,40,.18); font-weight:800; display:flex; align-items:center; justify-content:center;
+    transition: box-shadow .25s, transform .18s, border-color .25s, background .25s;
+  }
+
+  /* ——— Button glow system ——— */
+  .tp-btn:hover{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 0 2px rgba(0,140,255,.12) inset;
+  }
+  /* Busy pulse (applied while a click is processing) */
+  .tp-btn[data-busy="true"]{
+    animation: tp-busy 1.2s ease-in-out infinite;
+    border-color: rgba(0,140,255,.35);
+  }
+  @keyframes tp-busy{
+    0%   { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 8px rgba(0,140,255,.35); }
+    50%  { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 20px rgba(0,140,255,.7); }
+    100% { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 8px rgba(0,140,255,.35); }
+  }
+  /* Success / Fail flash (clears automatically) */
+  .tp-btn[data-state="ok"]{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(25,195,125,.7);
+    border-color:rgba(25,195,125,.6);
+  }
+  .tp-btn[data-state="fail"]{
+    box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(225,29,72,.7);
+    border-color:rgba(225,29,72,.6);
+  }
+  /* Toggle glows (AUTO/KS/ALERTS pressed) */
+  #tp-ks[aria-pressed="true"],
+  #tp-alerts[aria-pressed="true"]{
+    background: radial-gradient(circle at 50% 40%, #ffffff 0%, #e9f7ff 45%, #d7f0ff 70%, #ffffff 100%);
+    border-color: rgba(0,140,255,.45);
+    box-shadow: 0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(0,140,255,.55);
+    transform: translateZ(0) scale(1.03);
+  }
+
+  /* Watchlist row highlight on last alert */
+  .tp-row--alert{
+    border-color: rgba(0,140,255,.55) !important;
+    box-shadow: 0 0 0 2px rgba(0,140,255,.18) inset, 0 6px 18px rgba(0,140,255,.18);
+    background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .tp-btn[data-busy="true"]{ animation:none; }
+  }
+</style>
+
+<script>
+(()=>{
+  const ROOT = document.getElementById('cycla-trades-widget');
+
+  // ───────────────────────── config ─────────────────────────
+  const RELAY_BASE    = (window.CYCLA && (window.CYCLA.RELAY || window.CYCLA.RELAY_BASE)) || "https://spectra-trade-bot.onrender.com";
+  const STEP_SECONDS  = 5;
+  const NOTIONAL_USD  = Number(window?.CYCLA?.ORDER_USD ?? 3);
+
+  window.CYCLA = window.CYCLA || {};
+  window.CYCLA.STEP_SECONDS = STEP_SECONDS;
+
+  // ───────────────────────── shared bus ─────────────────────
+  window.CYCLA = window.CYCLA || {};
+  window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
+const BUS = window.CYCLA.bus;   // <-- add this
+
+  // ───────────────────────── DOM refs ───────────────────────
+  const PL_BOX   = document.getElementById('tp-pl-body');
+  const W_LIST   = document.getElementById('tp-watch-list');
+  const A_LIST   = document.getElementById('tp-active-list');
+  const INFO_BNR = document.getElementById('tp-info-banner');
+
+  const BTN_BUY    = document.getElementById('tp-buy');
+  const BTN_SELL   = document.getElementById('tp-sell');
+  const BTN_KS     = document.getElementById('tp-ks');
+  const BTN_WCLR   = document.getElementById('tp-watch-clear');
+  const BTN_ACLR   = document.getElementById('tp-active-clear');
+  const BTN_ALERTS = document.getElementById('tp-alerts'); // NEW
+
+  // ───────────────────────── local state ─────────────────────
+  let KS   = false;
+  let ALERTS = false;                     // NEW
+
+  const watch  = new Map();  // key: "BTCUSD" -> { sym, tf }
+  const active = new Map();  // key: "BTCUSD" -> { sym, tf, led:'idle' }
+
+  // Utilities
+  const uiToRelay = (s) => {
+    const S = String(s||"").trim().toUpperCase();
+    if (!S) return "";
+    return S.includes("-") ? S : (S.endsWith("USD") ? (S.slice(0,-3) + "-USD") : S.replace("/", "-"));
+  };
+  const prettyUsd = (n) => (Number.isFinite(n) ? `$${n.toLocaleString(undefined,{maximumFractionDigits:2})}` : "—");
+
+  function ecu(level='ok', code='TW-OK-100', msg=''){
+    INFO_BNR.textContent = `ECU ${level.toUpperCase()}: [${code}] ${msg}`;
+    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail: { level, msg: `[${code}] ${msg}` }}));
+  }
+
+  // Button flash helpers (glow states)
+  function setBusy(btn, on){ btn?.setAttribute('data-busy', on?'true':'false'); if(!on) btn?.removeAttribute('data-busy'); }
+  function flash(btn, state){ if(!btn) return; btn.setAttribute('data-state', state); setTimeout(()=>btn.removeAttribute('data-state'), 900); }
+
+  // ────────── Chart discovery (no click required) ──────────
+  function getChartSnapshot(){
+    if (typeof window?.CYCLA?.getDisplayed === 'function') {
+      const g = window.CYCLA.getDisplayed() || {};
+      const uiSym = String(g.symbol||'').toUpperCase().replace(/[^\w]/g,'');
+      const tf    = String(g.tf||'').toUpperCase();
+      if (uiSym) return { uiSym, tf };
+    }
+    const uiSym2 = String(
+      window?.CYCLA?.currentSymbol ||
+      window?.CYCLA?.symbol ||
+      window?.CYCLA?.chart?.symbol ||
+      window?.CYCLA?.LAST?.symbol || ''
+    ).toUpperCase().replace(/[^\w]/g,'');
+    const tf2 = String(
+      window?.CYCLA?.currentTF ||
+      window?.CYCLA?.tf ||
+      window?.CYCLA?.chart?.tf ||
+      window?.CYCLA?.LAST?.tf || ''
+    ).toUpperCase();
+    if (uiSym2) return { uiSym: uiSym2, tf: tf2 };
+    const root = document.querySelector('#cycla-chart-widget,[data-cycla-chart]');
+    if (root) {
+      const s = String(root.getAttribute('data-symbol')||'').toUpperCase().replace(/[^\w]/g,'');
+      const t = String(root.getAttribute('data-tf')||'').toUpperCase();
+      if (s) return { uiSym: s, tf: t };
+    }
+    return { uiSym:'', tf:'' };
+  }
+
+  // Guard for optional ledger hook used in row remove handlers
+  if (typeof window.ledgerDrop !== 'function') {
+    window.ledgerDrop = function(){ /* no-op */ };
+  }
+
+  // ───────────────────────── renderers ───────────────────────
+  function rowFor({ sym, tf }, canRemove = true){
+    const row = document.createElement('div');
+    row.className = 'tp-row';
+    row.dataset.symbol = String(sym).toUpperCase();
+    row.dataset.tf     = (tf||'1m').toUpperCase();
+
+    const led = document.createElement('div');
+    led.className = 'led led--idle';
+    led.dataset.symbol = row.dataset.symbol;
+
+    const mid = document.createElement('div');
+    mid.style.display = 'flex'; mid.style.gap = '6px'; mid.style.alignItems = 'center';
+    const tfBadge = document.createElement('span'); tfBadge.className = 'tf'; tfBadge.textContent = row.dataset.tf;
+    const symSpan = document.createElement('span'); symSpan.className = 'sym'; symSpan.textContent = sym;
+    mid.append(tfBadge, symSpan);
+
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = '−'; rm.title = 'Remove';
+    if (canRemove){
+      rm.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        (canRemove ? watch : active).delete(sym);
+        row.remove();
+        if (!canRemove) { window.ledgerDrop(sym); onActiveChanged(); }
+      });
+    }else{
+      rm.disabled = true; rm.style.opacity = .33; rm.title = '';
+    }
+
+    row.addEventListener('click', ()=>{
+      const tf = row.dataset.tf || '1m';
+      (window.CYCLA.tfBySymbol ||= Object.create(null))[sym] = tf; // TF lock
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', {
+        detail: { symbol: sym, tf }
+      }));
+    });
+
+    row.append(led, mid, rm);
+    return row;
+  }
+
+  function renderWatch(){ W_LIST.innerHTML = ''; for(const v of watch.values()) W_LIST.appendChild(rowFor(v,true)); }
+  function renderActive(){ A_LIST.innerHTML = ''; for(const v of active.values()) A_LIST.appendChild(rowFor(v,false)); }
+
+  // Watchlist intake / activation
+  window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+    const { symbol, tf } = e.detail || {};
+    if (!symbol) return;
+    const sym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
+    watch.set(sym, { sym, tf: (tf||'') });
+    renderWatch();
+  });
+  W_LIST.addEventListener('click', (ev)=>{
+    const node = ev.target.closest('.tp-row'); if(!node) return;
+    const text = node.querySelector('.sym')?.textContent || '';
+    const tf   = node.querySelector('.tf')?.textContent || '';
+    if (!text) return;
+    active.set(text, { sym:text, tf, led:'idle' });
+    renderActive();
+    onActiveChanged();
+  });
+  BTN_WCLR.addEventListener('click', ()=>{ watch.clear(); renderWatch(); });
+  BTN_ACLR.addEventListener('click', ()=>{ active.clear(); renderActive(); });
+
+  // LED updates
+  function setLed(sym, state){
+    const led = A_LIST.querySelector(`.led[data-symbol="${sym}"]`);
+    if (!led) return;
+    led.className = 'led';
+    led.classList.add(
+      state === 'pending' ? 'led--pending' :
+      state === 'ok'      ? 'led--ok'      :
+      state === 'fail'    ? 'led--fail'    : 'led--idle'
+    );
+  }
+  window.CYCLA.bus.addEventListener('cycla:order:status', (e)=>{
+    const { symbol, status } = e.detail || {};
+    if (!symbol) return;
+    setLed(symbol.toUpperCase().replace(/[^\w]/g,''), status);
+  });
+
+  // ───────────────────────── P/L engine (as in your base) ───────────────────
+  const lastBySym = new Map();
+  const pos = new Map();
+  let realized = 0;
+  let plPoll = null;
+
+  const keyOf = (s)=>String(s||'').toUpperCase().replace(/[^\w]/g,'');
+
+  function onActiveChanged(){
+    if (active.size && !plPoll){
+      plPoll = setInterval(refreshPricesAndPL, 3000);
+    }else if (!active.size && plPoll){
+      clearInterval(plPoll); plPoll = null;
+    }
+    updatePL();
+  }
+
+  async function refreshPricesAndPL(){
+    const jobs = [];
+    for (const { sym } of active.values()){
+      const ui = keyOf(sym);
+      const relaySym = uiToRelay(ui);
+      jobs.push((async ()=>{
+        try{
+          const r = await fetch(`${RELAY_BASE}/dbg/book?symbol=${encodeURIComponent(relaySym)}`);
+          const j = await r.json();
+          const bid = Number(j?.bid), ask = Number(j?.ask);
+          if (Number.isFinite(bid) && Number.isFinite(ask) && bid>0 && ask>0){
+            lastBySym.set(ui, (bid+ask)/2);
+          }
+        }catch{}
+      })());
+    }
+    await Promise.all(jobs);
+    updatePL();
+  }
+
+  function updatePL(){
+    let unreal = 0;
+    for (const [ui, p] of pos.entries()){
+      if (!active.has(ui)) continue;
+      const last = lastBySym.get(ui);
+      if (!p || !Number.isFinite(p.qty) || p.qty===0 || !Number.isFinite(last)) continue;
+      unreal += p.qty * (last - p.avg);
+    }
+    const total = realized + unreal;
+    PL_BOX.textContent = `Total: ${prettyUsd(total)}  (Real: ${prettyUsd(realized)} | Unreal: ${prettyUsd(unreal)})`;
+  }
+
+  window.CYCLA.bus.addEventListener('cycla:order:status', (e)=>{
+    const { symbol, status, px, qty, side } = e.detail || {};
+    if (status !== 'ok') return;
+    const ui = keyOf(symbol);
+    const price = Number(px);
+    const q = (qty === 'ALL') ? NaN : Number(qty);
+    const ref = Number.isFinite(price) ? price : lastBySym.get(ui);
+    if (!Number.isFinite(ref)) return;
+
+    const node = pos.get(ui) || { qty:0, avg:ref };
+
+    if (String(side).toUpperCase() === 'BUY'){
+      const addQ = Number.isFinite(q) ? q : (NOTIONAL_USD / Math.max(1e-9, ref));
+      const newQty = node.qty + addQ;
+      const newAvg = (node.qty*node.avg + addQ*ref) / Math.max(1e-9, newQty);
+      pos.set(ui, { qty:newQty, avg:newAvg });
+    }else if (String(side).toUpperCase() === 'SELL'){
+      if (qty === 'ALL'){
+        if (node.qty > 0){
+          realized += node.qty * (ref - node.avg);
+        }
+        pos.set(ui, { qty:0, avg:ref });
+      }else{
+        const subQ = Number.isFinite(q) ? q : 0;
+        const used = Math.min(node.qty, Math.max(0, subQ));
+        realized += used * (ref - node.avg);
+        pos.set(ui, { qty: node.qty - used, avg: node.avg });
+      }
+    }
+    updatePL();
+  });
+
+  window.CYCLA.bus.addEventListener('cycla:last', (e)=>{
+    const ui = keyOf(e?.detail?.symbol);
+    const last = Number(e?.detail?.last);
+    if (ui && Number.isFinite(last)) {
+      lastBySym.set(ui, last);
+      updatePL();
+    }
+  });
+
+  const _renderActiveOrig = renderActive;
+  renderActive = function(){
+    _renderActiveOrig();
+    onActiveChanged();
+  };
+  BTN_ACLR.addEventListener('click', onActiveChanged);
+  BTN_WCLR.addEventListener('click', onActiveChanged);
+
+  async function chooseQtyForSidePx(side, refPx){
+    if (String(side).toUpperCase()==='SELL') return 'ALL';
+    const usd = NOTIONAL_USD > 0 ? NOTIONAL_USD : 3;
+    return usd / Math.max(1e-9, Number(refPx||1));
+  }
+  async function postOrder(body){
+    return fetch(`${RELAY_BASE}/order`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+  }
+  async function refPriceFor(side, uiSym){
+    const px = Number(window?.CYCLA?.lastPrice);
+    if (Number.isFinite(px) && px > 0) return px;
+    try{
+      const r = await fetch(`${RELAY_BASE}/dbg/book?symbol=${encodeURIComponent(uiToRelay(uiSym))}`);
+      const j = await r.json();
+      if (j){
+        const ask = Number(j.ask ?? j.best_ask ?? j.ask_price);
+        const bid = Number(j.bid ?? j.best_bid ?? j.bid_price);
+        if (String(side).toUpperCase()==='BUY')  return Number.isFinite(ask) ? ask : Number(j.est_ask_for_qty) || 1;
+        if (String(side).toUpperCase()==='SELL') return Number.isFinite(bid) ? bid : Number(j.est_bid_for_qty) || 1;
+      }
+    }catch{}
+    return 1;
+  }
+  function ensureActiveRow(sym, tf){
+    if (!active.has(sym)) { active.set(sym, { sym, tf: (tf||''), led:'idle' }); renderActive(); }
+  }
+
+  // PATCH 1: expose helpers for AUTO reuse
+  window.CYCLA.chooseQtyForSidePx = (uiSym, side, refPx) => chooseQtyForSidePx(side, refPx);
+  window.CYCLA.manualOrder = async (body) => {
+    try {
+      const r = await fetch(`${RELAY_BASE}/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // ───────────────────────── manual BUY/SELL ────────────────────────────────
+  async function manualOrder(side, btn){
+    const snap = getChartSnapshot();
+    const uiSym = snap.uiSym;
+    const tf    = snap.tf;
+    if (!uiSym){
+      flash(btn,'fail');
+      ecu('err','TW-NOCHART-002','No displayed chart symbol detected. Ensure the chart is visible.');
+      return;
+    }
+
+    ensureActiveRow(uiSym, tf);
+    setLed(uiSym, 'pending');
+    setBusy(btn, true);
+
+    const price = await refPriceFor(side, uiSym);
+    const size  = await chooseQtyForSidePx(side, price);
+    const body  = { symbol: uiToRelay(uiSym), side, price, size, seconds: STEP_SECONDS };
+
+    ecu('ok','TW-MAN-INIT',`Manual ${side} • ${uiSym}${tf?` • ${tf}`:''} • px≈${price} • size=${typeof size==='string'?size:size.toFixed(8)}`);
+
+    try{
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol: uiSym, status: 'pending', side }
+      }));
+      const r = await postOrder(body);
+      const ok = r.ok;
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol: uiSym, status: ok ? 'ok' : 'fail', side, px: price, qty: size }
+      }));
+      if (!ok){
+        let j={}; try{ j = await r.json(); }catch{}
+        flash(btn,'fail');
+        ecu('err','TW-ORD-400',`Manual ${side} ${uiSym} failed: ${j?.backend_status || r.status}`);
+      }else{
+        flash(btn,'ok');
+        ecu('ok','TW-ORD-200',`Manual ${side} ${uiSym} placed @ ~${price}.`);
+      }
+    }catch(err){
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
+        detail:{ symbol: uiSym, status: 'fail', side, px: price, qty: size }
+      }));
+      flash(btn,'fail');
+      ecu('err','TW-ORD-500', String(err?.message||err));
+    }finally{
+      setBusy(btn, false);
+    }
+  }
+  BTN_BUY .addEventListener('click', ()=>manualOrder('BUY', BTN_BUY));
+  BTN_SELL.addEventListener('click', ()=>manualOrder('SELL', BTN_SELL));
+
+  // Kill Switch wiring
+  async function refreshKS(){
+    try{
+      const r = await fetch(`${RELAY_BASE}/status`);
+      const j = await r.json();
+      KS = !!j.ks;
+      BTN_KS.setAttribute('aria-pressed', KS ? 'true' : 'false');
+      BTN_KS.title = KS ? 'Kill Switch (ON)' : 'Kill Switch (OFF)';
+    }catch{}
+  }
+  refreshKS();
+
+  BTN_KS.addEventListener('click', async ()=>{
+    setBusy(BTN_KS, true);
+    try{
+      const path = KS ? '/killswitch/reset' : '/killswitch';
+      const r = await fetch(`${RELAY_BASE}${path}`, { method:'POST' });
+      const j = await r.json().catch(()=>({}));
+      KS = !!j.ks;
+      BTN_KS.setAttribute('aria-pressed', KS ? 'true' : 'false');
+      ecu(KS?'warn':'ok', KS?'TW-KS-ON':'TW-KS-OFF', KS?'KS enabled. All trading blocked.':'KS disabled. Trading allowed.');
+      BTN_KS.title = KS ? 'Kill Switch (ON)' : 'Kill Switch (OFF)';
+      flash(BTN_KS, KS?'fail':'ok');
+    }catch(err){
+      flash(BTN_KS,'fail');
+      ecu('err','TW-KS-ERR', String(err?.message||err));
+    }finally{
+      setBusy(BTN_KS, false);
+    }
+  });
+
+  // ───────────────────────── NEW: ALERTS (Watchlist-only) ───────────────────
+  // WebAudio chirp (no assets needed)
+  let audioCtx = null;
+  function chirp(kind='BUY'){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      const t0 = audioCtx.currentTime;
+      // BUY: higher / rising; SELL: lower / falling
+      const fStart = kind==='BUY' ? 880 : 420;
+      const fEnd   = kind==='BUY' ? 1320 : 280;
+      o.frequency.setValueAtTime(fStart, t0);
+      o.frequency.exponentialRampToValueAtTime(fEnd, t0 + 0.18);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + 0.24);
+    }catch{}
+  }
+
+  // Track last highlighted Watchlist row
+  let lastAlertSym = '';
+  function highlightWatch(symUI){
+    // clear old
+    if (lastAlertSym){
+      const old = W_LIST.querySelector(`.tp-row[data-symbol="${lastAlertSym}"]`);
+      if (old) old.classList.remove('tp-row--alert');
+    }
+    // set new
+    const row = W_LIST.querySelector(`.tp-row[data-symbol="${symUI}"]`);
+    if (row){
+      row.classList.add('tp-row--alert');
+      lastAlertSym = symUI;
+      // auto-clear after few seconds to reduce stickiness
+      setTimeout(()=>{
+        if (row.classList.contains('tp-row--alert') && lastAlertSym === symUI){
+          row.classList.remove('tp-row--alert');
+          lastAlertSym = '';
+        }
+      }, 4000);
+    }
+  }
+
+  // Toggle button
+  function alertsOn(){
+    ALERTS = true;
+    BTN_ALERTS.setAttribute('aria-pressed','true');
+    ecu('ok','TW-ALERTS-ON','Alerts listening on Watchlist (fully printed BUY/SELL).');
+  }
+  function alertsOff(){
+    ALERTS = false;
+    BTN_ALERTS.setAttribute('aria-pressed','false');
+    ecu('warn','TW-ALERTS-OFF','Alerts off.');
+  }
+  BTN_ALERTS.addEventListener('click', ()=>{
+    setBusy(BTN_ALERTS, true);
+    ALERTS ? alertsOff() : alertsOn();
+    setTimeout(()=>setBusy(BTN_ALERTS,false), 120);
+  });
+
+  // Listen to chart signals but ALERTS filters only Watchlist members (and TF)
+  BUS.addEventListener('cycla:signal', (e)=>{
+    if (!ALERTS) return;
+    const d = e.detail || {};
+    const uiSym = String(d.symbol||'').toUpperCase().replace(/[^\w]/g,'');
+    if (!uiSym) return;
+
+    // Only Watchlist symbols
+    if (!watch.has(uiSym)) return;
+
+    // Only fully printed signals (avoid repaint)
+    const printed =
+      (d.printed === true) ||
+      (Number(d.progress) >= 1) ||
+      (d.from === 'chart' && d.closeOnly === true);
+    if (!printed) return;
+
+    // Respect the Watchlist TF if provided
+    const wlTF = String(watch.get(uiSym)?.tf || '').toUpperCase();
+    const sigTF = String(d.tf || '').toUpperCase();
+    if (wlTF && sigTF && wlTF !== sigTF) return;
+
+    // Ring + highlight + banner note
+    const side = String(d.side||'').toUpperCase();
+    chirp(side === 'SELL' ? 'SELL' : 'BUY');
+    highlightWatch(uiSym);
+    ecu('ok','TW-ALERTS-HIT',`${uiSym}${sigTF?` • ${sigTF}`:''} • ${side} signal.`);
+    flash(BTN_ALERTS,'ok');
+  });
+
+  // ───────────────────────── init ─────────────────────────────
+  ecu('ok','TW-READY-000','Ready.');
+})();
+</script>
