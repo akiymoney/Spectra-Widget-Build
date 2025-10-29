@@ -37,7 +37,7 @@
       <button id="tp-alerts" class="tp-btn" title="Alerts (Watchlist printed signals)" aria-pressed="false">🔔</button>
     </div>
 
-    <!-- Bottom row: AUTO / BUY / SELL / KS (each 34x34) -->
+    <!-- Bottom row: BUY / SELL / KS (each 34x34) -->
     <div class="tp-toolbar" role="toolbar" aria-label="Trade controls">
       <button id="tp-buy"  class="tp-btn" title="BUY (uses currently displayed chart symbol)">B</button>
       <button id="tp-sell" class="tp-btn" title="SELL (uses currently displayed chart symbol)">S</button>
@@ -134,7 +134,6 @@
   .tp-btn:hover{
     box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 0 2px rgba(0,140,255,.12) inset;
   }
-  /* Busy pulse (applied while a click is processing) */
   .tp-btn[data-busy="true"]{
     animation: tp-busy 1.2s ease-in-out infinite;
     border-color: rgba(0,140,255,.35);
@@ -144,7 +143,6 @@
     50%  { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 20px rgba(0,140,255,.7); }
     100% { box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 8px rgba(0,140,255,.35); }
   }
-  /* Success / Fail flash (clears automatically) */
   .tp-btn[data-state="ok"]{
     box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(25,195,125,.7);
     border-color:rgba(25,195,125,.6);
@@ -153,7 +151,6 @@
     box-shadow:0 13px 21px rgba(8,16,40,.18), 0 0 18px rgba(225,29,72,.7);
     border-color:rgba(225,29,72,.6);
   }
-  /* Toggle glows (AUTO/KS/ALERTS pressed) */
   #tp-ks[aria-pressed="true"],
   #tp-alerts[aria-pressed="true"]{
     background: radial-gradient(circle at 50% 40%, #ffffff 0%, #e9f7ff 45%, #d7f0ff 70%, #ffffff 100%);
@@ -162,14 +159,12 @@
     transform: translateZ(0) scale(1.03);
   }
 
-  /* Watchlist row highlight on last alert */
   .tp-row--alert{
     border-color: rgba(0,140,255,.55) !important;
     box-shadow: 0 0 0 2px rgba(0,140,255,.18) inset, 0 6px 18px rgba(0,140,255,.18);
     background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
   }
 
-  /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce){
     .tp-btn[data-busy="true"]{ animation:none; }
   }
@@ -205,43 +200,43 @@
   const BTN_ALERTS = document.getElementById('tp-alerts'); // NEW
 
   // ───────────────────────── local state ─────────────────────
-  let KS   = false;
-  let ALERTS = false;                     // NEW
+  let KS = false;
+  let ALERTS = false; // NEW
 
-const LS = {
-  alerts: 'CYCLA_ALERTS',
-  watch:  'CYCLA_WATCHLIST_V1'
-};
+  const LS = {
+    alerts: 'CYCLA_ALERTS',
+    watch:  'CYCLA_WATCHLIST_V1'
+  };
 
-function saveWatch(){
-  try { localStorage.setItem(LS.watch, JSON.stringify([...watch.values()])); } catch {}
-}
-function loadWatch(){
-  try{
-    const raw = localStorage.getItem(LS.watch);
-    if (!raw) return;
-    const arr = JSON.parse(raw);
-    if (Array.isArray(arr)){
-      watch.clear();
-      for (const v of arr){
-        if (v && v.sym){
-          const sym = String(v.sym).toUpperCase().replace(/[^\w]/g,'');
-          watch.set(sym, { sym, tf: (v.tf || '1m').toUpperCase() });
+  // persistence helpers
+  function saveWatch(){
+    try { localStorage.setItem(LS.watch, JSON.stringify([...watch.values()])); } catch {}
+  }
+  function loadWatch(){
+    try{
+      const raw = localStorage.getItem(LS.watch);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)){
+        watch.clear();
+        for (const v of arr){
+          if (v && v.sym){
+            const sym = String(v.sym).toUpperCase().replace(/[^\w]/g,'');
+            watch.set(sym, { sym, tf: (v.tf || '1m').toUpperCase() });
+          }
         }
+        renderWatch();
       }
-      renderWatch();
-    }
-  }catch{}
-}
+    }catch{}
+  }
 
-let alertsES = null;                // current EventSource handle
-let alertsSeen = new Set();         // de-dupe keys: "SYMBOL|TF|BAR_TIME|SIDE"
+  let alertsES = null;        // current EventSource handle
+  let alertsSeen = new Set(); // de-dupe keys: "SYMBOL|TF|BAR_TIME|SIDE"
 
-function relayOf(uiSym){
-  // Reuse your existing mapping if you already have uiToRelay
-  try { return uiToRelay(uiSym); } catch { return uiSym.replace(/USD$/, '-USD'); }
-}
-function uiOf(pair){ return String(pair || '').toUpperCase().replace('-', ''); }
+  function relayOf(uiSym){
+    try { return uiToRelay(uiSym); } catch { return uiSym.replace(/USD$/, '-USD'); }
+  }
+  function uiOf(pair){ return String(pair || '').toUpperCase().replace('-', ''); }
 
   const watch  = new Map();  // key: "BTCUSD" -> { sym, tf }
   const active = new Map();  // key: "BTCUSD" -> { sym, tf, led:'idle' }
@@ -259,21 +254,21 @@ function uiOf(pair){ return String(pair || '').toUpperCase().replace('-', ''); }
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail: { level, msg: `[${code}] ${msg}` }}));
   }
 
-function buildWatchParam(){
-  const items = [];
-  for (const v of watch.values()){
-    const sym = relayOf(v.sym);                  // e.g. "LTC-USD"
-    const tf  = String(v.tf || '1m').toUpperCase();
-    if (sym && tf) items.push(`${sym}@${tf}`);   // "LTC-USD@5m"
+  function buildWatchParam(){
+    const items = [];
+    for (const v of watch.values()){
+      const sym = relayOf(v.sym);                  // e.g. "LTC-USD"
+      const tf  = String(v.tf || '1m').toUpperCase();
+      if (sym && tf) items.push(`${sym}@${tf}`);   // "LTC-USD@5m"
+    }
+    return items.join(',');
   }
-  return items.join(',');
-}
 
-  // Button flash helpers (glow states)
+  // Button flash helpers
   function setBusy(btn, on){ btn?.setAttribute('data-busy', on?'true':'false'); if(!on) btn?.removeAttribute('data-busy'); }
   function flash(btn, state){ if(!btn) return; btn.setAttribute('data-state', state); setTimeout(()=>btn.removeAttribute('data-state'), 900); }
 
-  // ────────── Chart discovery (no click required) ──────────
+  // Chart discovery (no click required)
   function getChartSnapshot(){
     if (typeof window?.CYCLA?.getDisplayed === 'function') {
       const g = window.CYCLA.getDisplayed() || {};
@@ -303,72 +298,72 @@ function buildWatchParam(){
     return { uiSym:'', tf:'' };
   }
 
-  // Guard for optional ledger hook used in row remove handlers
+  // Guard for optional ledger hook
   if (typeof window.ledgerDrop !== 'function') {
     window.ledgerDrop = function(){ /* no-op */ };
   }
 
   // ───────────────────────── renderers ───────────────────────
-function rowFor({ sym, tf }, canRemove = true){
-  const row = document.createElement('div');
-  row.className = 'tp-row';
-  row.dataset.symbol = String(sym).toUpperCase();
-  row.dataset.tf     = (tf||'1m').toUpperCase();
+  function rowFor({ sym, tf }, canRemove = true){
+    const row = document.createElement('div');
+    row.className = 'tp-row';
+    row.dataset.symbol = String(sym).toUpperCase();
+    row.dataset.tf     = (tf||'1m').toUpperCase();
 
-  const led = document.createElement('div');
-  led.className = 'led led--idle';
-  led.dataset.symbol = row.dataset.symbol;
+    const led = document.createElement('div');
+    led.className = 'led led--idle';
+    led.dataset.symbol = row.dataset.symbol;
 
-  const mid = document.createElement('div');
-  mid.style.display = 'flex'; mid.style.gap = '6px'; mid.style.alignItems = 'center';
-  const tfBadge = document.createElement('span'); tfBadge.className = 'tf'; tfBadge.textContent = row.dataset.tf;
-  const symSpan = document.createElement('span'); symSpan.className = 'sym'; symSpan.textContent = sym;
-  mid.append(tfBadge, symSpan);
+    const mid = document.createElement('div');
+    mid.style.display = 'flex'; mid.style.gap = '6px'; mid.style.alignItems = 'center';
+    const tfBadge = document.createElement('span'); tfBadge.className = 'tf'; tfBadge.textContent = row.dataset.tf;
+    const symSpan = document.createElement('span'); symSpan.className = 'sym'; symSpan.textContent = sym;
+    mid.append(tfBadge, symSpan);
 
-  const rm = document.createElement('button');
-  rm.className = 'rm'; rm.textContent = '−'; rm.title = 'Remove';
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = '−'; rm.title = 'Remove';
 
-  if (canRemove){
-    // WATCHLIST: remove from watch, then reconnect alerts
-    rm.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      watch.delete(sym);
-      row.remove();
-      saveWatch();                       // <— added
-      setTimeout(reconnectAlertsIfOn, 0); // rebuild Alerts stream
+    if (canRemove){
+      // WATCHLIST: remove from watch, then reconnect alerts
+      rm.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        watch.delete(sym);
+        row.remove();
+        saveWatch();                         // persist
+        setTimeout(reconnectAlertsIfOn, 0);  // rebuild Alerts stream
+      });
+    }else{
+      // ACTIVE: non-removable button (disabled)
+      rm.disabled = true;
+      rm.style.opacity = .33;
+      rm.title = '';
+    }
+
+    row.addEventListener('click', ()=>{
+      const tf = row.dataset.tf || '1m';
+      (window.CYCLA.tfBySymbol ||= Object.create(null))[sym] = tf; // TF lock
+      window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', {
+        detail: { symbol: sym, tf }
+      }));
     });
-  }else{
-    // ACTIVE: non-removable button (disabled)
-    rm.disabled = true;
-    rm.style.opacity = .33;
-    rm.title = '';
+
+    row.append(led, mid, rm);
+    return row;
   }
-
-  row.addEventListener('click', ()=>{
-    const tf = row.dataset.tf || '1m';
-    (window.CYCLA.tfBySymbol ||= Object.create(null))[sym] = tf; // TF lock
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:load', {
-      detail: { symbol: sym, tf }
-    }));
-  });
-
-  row.append(led, mid, rm);
-  return row;
-}
 
   function renderWatch(){ W_LIST.innerHTML = ''; for(const v of watch.values()) W_LIST.appendChild(rowFor(v,true)); }
   function renderActive(){ A_LIST.innerHTML = ''; for(const v of active.values()) A_LIST.appendChild(rowFor(v,false)); }
 
   // Watchlist intake / activation
-window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
-  const { symbol, tf } = e.detail || {};
-  if (!symbol) return;
-  const sym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
-  watch.set(sym, { sym, tf: (tf||'') });
-  renderWatch();
-  saveWatch();                        // <— add
-  reconnectAlertsIfOn();              // keep
-});
+  window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
+    const { symbol, tf } = e.detail || {};
+    if (!symbol) return;
+    const sym = String(symbol).toUpperCase().replace(/[^\w]/g,'');
+    watch.set(sym, { sym, tf: (tf||'') });
+    renderWatch();
+    saveWatch();
+    reconnectAlertsIfOn();
+  });
 
   W_LIST.addEventListener('click', (ev)=>{
     const node = ev.target.closest('.tp-row'); if(!node) return;
@@ -380,12 +375,12 @@ window.CYCLA.bus.addEventListener('cycla:watchlist:add', (e)=>{
     onActiveChanged();
   });
 
-BTN_WCLR.addEventListener('click', ()=>{
-  watch.clear();
-  renderWatch();
-  saveWatch();                        // <— add
-  setTimeout(reconnectAlertsIfOn, 0);
-});
+  BTN_WCLR.addEventListener('click', ()=>{
+    watch.clear();
+    renderWatch();
+    saveWatch();
+    setTimeout(reconnectAlertsIfOn, 0);
+  });
 
   BTN_ACLR.addEventListener('click', ()=>{ active.clear(); renderActive(); });
 
@@ -406,7 +401,7 @@ BTN_WCLR.addEventListener('click', ()=>{
     setLed(symbol.toUpperCase().replace(/[^\w]/g,''), status);
   });
 
-  // ───────────────────────── P/L engine (as in your base) ───────────────────
+  // ───────────────────────── P/L engine ──────────────────────
   const lastBySym = new Map();
   const pos = new Map();
   let realized = 0;
@@ -501,7 +496,6 @@ BTN_WCLR.addEventListener('click', ()=>{
     _renderActiveOrig();
     onActiveChanged();
   };
-
   BTN_ACLR.addEventListener('click', onActiveChanged);
 
   async function chooseQtyForSidePx(side, refPx){
@@ -601,10 +595,10 @@ BTN_WCLR.addEventListener('click', ()=>{
   BTN_BUY .addEventListener('click', ()=>manualOrder('BUY', BTN_BUY));
   BTN_SELL.addEventListener('click', ()=>manualOrder('SELL', BTN_SELL));
 
-// Alerts toggle
-BTN_ALERTS.addEventListener('click', ()=>{
-  (ALERTS ? alertsOff : alertsOn)();
-});
+  // Alerts toggle
+  BTN_ALERTS.addEventListener('click', ()=>{
+    (ALERTS ? alertsOff : alertsOn)();
+  });
 
   // Kill Switch wiring
   async function refreshKS(){
@@ -638,7 +632,6 @@ BTN_ALERTS.addEventListener('click', ()=>{
   });
 
   // ───────────────────────── NEW: ALERTS (Watchlist-only) ───────────────────
-  // WebAudio chirp (no assets needed)
   let audioCtx = null;
   function chirp(kind='BUY'){
     try{
@@ -647,7 +640,6 @@ BTN_ALERTS.addEventListener('click', ()=>{
       const g = audioCtx.createGain();
       o.type = 'sine';
       const t0 = audioCtx.currentTime;
-      // BUY: higher / rising; SELL: lower / falling
       const fStart = kind==='BUY' ? 880 : 420;
       const fEnd   = kind==='BUY' ? 1320 : 280;
       o.frequency.setValueAtTime(fStart, t0);
@@ -661,20 +653,16 @@ BTN_ALERTS.addEventListener('click', ()=>{
     }catch{}
   }
 
-  // Track last highlighted Watchlist row
   let lastAlertSym = '';
   function highlightWatch(symUI){
-    // clear old
     if (lastAlertSym){
       const old = W_LIST.querySelector(`.tp-row[data-symbol="${lastAlertSym}"]`);
       if (old) old.classList.remove('tp-row--alert');
     }
-    // set new
     const row = W_LIST.querySelector(`.tp-row[data-symbol="${symUI}"]`);
     if (row){
       row.classList.add('tp-row--alert');
       lastAlertSym = symUI;
-      // auto-clear after few seconds to reduce stickiness
       setTimeout(()=>{
         if (row.classList.contains('tp-row--alert') && lastAlertSym === symUI){
           row.classList.remove('tp-row--alert');
@@ -684,97 +672,90 @@ BTN_ALERTS.addEventListener('click', ()=>{
     }
   }
 
-  // Toggle button
-function alertsOn(){
-  const list = buildWatchParam();
-  if (!list){
-    ecu('warn','TW-ALERTS-EMPTY','Add symbols to Watchlist first.');
-    BTN_ALERTS.setAttribute('aria-pressed','false');
-    ALERTS = false;
-    try{ localStorage.setItem(LS.alerts, 'off'); }catch{}  // <— add
-    return;
-  }
+  function alertsOn(){
+    const list = buildWatchParam();
+    if (!list){
+      ecu('warn','TW-ALERTS-EMPTY','Add symbols to Watchlist first.');
+      BTN_ALERTS.setAttribute('aria-pressed','false');
+      ALERTS = false;
+      try{ localStorage.setItem(LS.alerts, 'off'); }catch{}
+      return;
+    }
 
-  // Ask for notification permission once (best-effort)
-  if ('Notification' in window && Notification.permission === 'default'){
-    try { Notification.requestPermission(); } catch {}
-  }
+    // Ask for notification permission once (best-effort)
+    if ('Notification' in window && Notification.permission === 'default'){
+      try { Notification.requestPermission(); } catch {}
+    }
 
-  // reset state + close any old stream
-  alertsSeen = new Set();
-  if (alertsES) { try{ alertsES.close(); }catch{} alertsES = null; }
+    // reset state + close any old stream
+    alertsSeen = new Set();
+    if (alertsES) { try{ alertsES.close(); }catch{} alertsES = null; }
 
-  const url = `${RELAY_BASE.replace(/\/$/,'')}/signals?watch=${list}`;
-  const es  = new EventSource(url);
-  window.CYCLA.alertsStream = alertsES = es;
+    const url = `${RELAY_BASE.replace(/\/$/,'')}/signals?watch=${list}`;
+    const es  = new EventSource(url);
+    window.CYCLA.alertsStream = alertsES = es;
 
-  es.addEventListener('signal', (evt)=>{
-    try{
-      const d = JSON.parse(evt.data); // {symbol, tf, side, time, price}
-      const key = `${d.symbol}|${d.tf}|${d.time}|${d.side}`;
-      if (alertsSeen.has(key)) return;
-      alertsSeen.add(key);
+    es.addEventListener('signal', (evt)=>{
+      try{
+        const d = JSON.parse(evt.data); // {symbol, tf, side, time, price}
+        const key = `${d.symbol}|${d.tf}|${d.time}|${d.side}`;
+        if (alertsSeen.has(key)) return;
+        alertsSeen.add(key);
 
-      const ui = uiOf(d.symbol);
-      try { chirp(String(d.side).toUpperCase()==='SELL' ? 'SELL' : 'BUY'); } catch {}
-      try { highlightWatch(ui); } catch {}
-      ecu('ok','TW-ALERTS-HIT', `${d.symbol} • ${d.tf} • ${d.side}`);
-      flash(BTN_ALERTS,'ok');
+        const ui = uiOf(d.symbol);
+        try { chirp(String(d.side).toUpperCase()==='SELL' ? 'SELL' : 'BUY'); } catch {}
+        try { highlightWatch(ui); } catch {}
+        ecu('ok','TW-ALERTS-HIT', `${d.symbol} • ${d.tf} • ${d.side}`);
+        flash(BTN_ALERTS,'ok');
 
-      // If tab hidden, show a system notification (best-effort)
-      if (document.hidden && 'Notification' in window && Notification.permission === 'granted'){
-        try { new Notification(`${d.symbol} ${d.side}`, { body: `${d.tf} • px≈${d.price}`, silent:false }); } catch {}
+        // If tab hidden, show a system notification (best-effort)
+        if (document.hidden && 'Notification' in window && Notification.permission === 'granted'){
+          try { new Notification(`${d.symbol} ${d.side}`, { body: `${d.tf} • px≈${d.price}`, silent:false }); } catch {}
+        }
+      }catch(err){
+        ecu('warn','TW-ALERTS-PARSE', String(err?.message||err));
       }
-    }catch(err){
-      ecu('warn','TW-ALERTS-PARSE', String(err?.message||err));
-    }
+    });
+
+    es.addEventListener('error', ()=>{
+      if (ALERTS){
+        ecu('warn','TW-ALERTS-ERR','Alerts connection dropped — retrying…');
+        setTimeout(()=>{ if (ALERTS) alertsOn(); }, 1500);
+      }
+    });
+
+    ALERTS = true;
+    BTN_ALERTS.setAttribute('aria-pressed','true');
+    try{ localStorage.setItem(LS.alerts, 'on'); }catch{}
+    ecu('ok','TW-ALERTS-ON','Alerts listening on Watchlist (fully printed BUY/SELL).');
+  }
+
+  function alertsOff(){
+    ALERTS = false;
+    BTN_ALERTS.setAttribute('aria-pressed','false');
+    if (alertsES) { try{ alertsES.close(); }catch{} alertsES = null; }
+    alertsSeen.clear();
+    try{ localStorage.setItem(LS.alerts, 'off'); }catch{}
+    ecu('warn','TW-ALERTS-OFF','Alerts off.');
+  }
+
+  // If Alerts are ON and the watchlist changed, rebuild the stream
+  function reconnectAlertsIfOn(){ if (ALERTS) alertsOn(); }
+
+  // Restore Watchlist and optionally auto-start Alerts
+  loadWatch();
+  const _autostart = (()=>{
+    try { return localStorage.getItem(LS.alerts) === 'on'; } catch { return false; }
+  })();
+  if (_autostart && watch.size){
+    BTN_ALERTS.setAttribute('aria-pressed','true');
+    alertsOn();
+  }
+
+  // Keep audio unmuted when returning to tab
+  document.addEventListener('visibilitychange', ()=>{
+    try{ audioCtx?.resume?.(); }catch{}
   });
-
-  es.addEventListener('error', ()=>{
-    if (ALERTS){
-      ecu('warn','TW-ALERTS-ERR','Alerts connection dropped — retrying…');
-      setTimeout(()=>{ if (ALERTS) alertsOn(); }, 1500);
-    }
-  });
-
-  ALERTS = true;
-  BTN_ALERTS.setAttribute('aria-pressed','true');
-  try{ localStorage.setItem(LS.alerts, 'on'); }catch{}     // <— add
-  ecu('ok','TW-ALERTS-ON','Alerts listening on Watchlist (fully printed BUY/SELL).');
-}
-
-  ALERTS = true;
-  BTN_ALERTS.setAttribute('aria-pressed','true');
-  ecu('ok','TW-ALERTS-ON','Alerts listening on Watchlist (fully printed BUY/SELL).');
-}
-
-function alertsOff(){
-  ALERTS = false;
-  BTN_ALERTS.setAttribute('aria-pressed','false');
-  if (alertsES) { try{ alertsES.close(); }catch{} alertsES = null; }
-  alertsSeen.clear();
-  try{ localStorage.setItem(LS.alerts, 'off'); }catch{}     // <— add
-  ecu('warn','TW-ALERTS-OFF','Alerts off.');
-}
-
-// If Alerts are ON and the watchlist changed, rebuild the stream
-function reconnectAlertsIfOn(){ if (ALERTS) alertsOn(); }
-
-// Restore Watchlist and optionally auto-start Alerts
-loadWatch();
-const _autostart = (()=>{
-  try { return localStorage.getItem(LS.alerts) === 'on'; } catch { return false; }
-})();
-if (_autostart && watch.size){
-  // Mirror UI toggle & reconnect
-  BTN_ALERTS.setAttribute('aria-pressed','true');
-  alertsOn();
-}
-
-// Keep audio unmuted when returning to tab
-document.addEventListener('visibilitychange', ()=>{
-  try{ audioCtx?.resume?.(); }catch{}
-});
 
   // ───────────────────────── init ─────────────────────────────
   ecu('ok','TW-READY-000','Ready.');
