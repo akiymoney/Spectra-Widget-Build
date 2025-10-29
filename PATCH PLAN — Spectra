@@ -1,0 +1,76 @@
+FINAL PATCH PLAN — CYCLA “TradingView-Style” ALERTS (Minimal, Professional)
+
+──────────────────────────────────────────────
+A) OVERVIEW
+──────────────────────────────────────────────
+Goal: Alerts button monitors all Watchlist HUD assets across their own timeframes, even when not displayed on the chart.
+Keep chart untouched. Use one SSE (Server-Sent Events) stream for all symbols.
+
+──────────────────────────────────────────────
+B) RELAY PATCH  —  /signals SSE ENDPOINT
+──────────────────────────────────────────────
+1. Add endpoint in app.mjs:
+
+   GET /signals?watch=ETC-USD@5m,UNI-USD@30m,LTC-USD@1D
+
+2. Behavior:
+   • Parse `watch` query param → array of {symbol, tf}.
+   • For each pair, spin a TF-aware polling job using existing TwelveData + SMFT functions.
+   • Reuse smft.mjs to compute arrows, printed states, and BUY/SELL markers.
+   • Only emit when bar is CLOSED and marker is fully printed.
+   • Emit once per bar/side (de-dupe by `symbol|tf|barTime|side`).
+   • Stream lines:
+       event: signal
+       data: {"symbol":"LTC-USD","tf":"1D","side":"SELL","time":"2025-10-28T20:05Z","price":64.23}
+   • Stagger polling intervals to respect API RPM.
+   • On client disconnect, clear all timers.
+
+3. Cadence guide:
+   5m → 25s, 15m → 45s, 30m → 75s, 1H → 2min, 1D → 10min.
+
+──────────────────────────────────────────────
+C) CLIENT PATCH  —  TRADES WIDGET ALERTS
+──────────────────────────────────────────────
+1. On Alerts button click:
+   • Build watchlist string: `symbol@tf` from HUD.
+   • Open one EventSource(`/signals?watch=${list}`).
+   • Store handle in global var (e.g., `window.CYCLA.alertsStream`).
+   • Maintain Set for de-dupe: `symbol|tf|barTime|side`.
+
+2. On SSE “signal” event:
+   • Parse JSON {symbol, tf, side, printed, price, time}.
+   • If `printed` true and not in de-dupe set:
+        - Play chime.
+        - Add `.tp-row--alert` pulse class on Watchlist row.
+        - ECU log: `ALERT • ${symbol} • ${tf} • ${side} • ${time}`.
+        - Add key to de-dupe Set.
+
+3. On Alerts OFF:
+   • Close EventSource, clear timers and de-dupe Set.
+
+4. On Watchlist change:
+   • If Alerts ON, rebuild watchlist string and reconnect SSE.
+
+──────────────────────────────────────────────
+D) UX DETAILS
+──────────────────────────────────────────────
+• Watchlist rows briefly pulse with glow/ring (~3s).
+• Alerts button momentarily flashes when any alert fires.
+• ECU messages show concise one-line summary.
+• Sound only triggers after initial click to satisfy browser audio policy.
+
+──────────────────────────────────────────────
+E) DESIGN ADVANTAGES
+──────────────────────────────────────────────
+✓ Single persistent connection — no per-symbol polling from browser.
+✓ Minimal patch: ~60 lines server + ~20 lines client.
+✓ No chart edits, no Robinhood changes, no extra deps.
+✓ Matches TradingView behavior: global, timeframe-aware, fully printed signals only.
+
+──────────────────────────────────────────────
+F) ACCEPTANCE CHECK
+──────────────────────────────────────────────
+1. Alerts OFF → silent.
+2. Alerts ON with multi-timeframe Watchlist → alerts ring regardless of chart symbol.
+3. De-dupe works → no double chime per bar.
+4. Turning OFF stops all streams instantly.
