@@ -4,7 +4,7 @@
      role="region"
      aria-label="Cycla Spectra"
      data-td-key="1079f6f5cca04a5f9f2849e3f7119a30"
-     data-default-tf="15m"
+     data-default-tf="30m"
      data-default-symbol="BTCUSD">
 
     <!-- Widget label -->
@@ -16,7 +16,7 @@
       <div class="cp-tools" aria-label="Chart Tools">
         <label class="cp-sr-only" for="cp-search">Search</label>
         <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTCUSD, AAPL, EURUSD" />
-<button class="cp-tool cp-tf" type="button" aria-label="Timeframe">15m</button>
+<button class="cp-tool cp-tf" type="button" aria-label="Timeframe">30m</button>
         <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
       </div>
 
@@ -563,7 +563,6 @@ const tf = window.CYCLA.currentTF || DEFAULT_TF;
     last: ROOT.querySelector('.cp-info .last')
   };
   const TF_BTN = ROOT.querySelector('.cp-tf');
-if (TF_BTN) TF_BTN.textContent = DEFAULT_TF;
   const TF_MENU = ROOT.querySelector('#cp-tf-menu');
   const SEARCH  = ROOT.querySelector('#cp-search');
   const W_BTN   = ROOT.querySelector('.cp-w');
@@ -1233,7 +1232,7 @@ window.CYCLA.symbolNow = () => (INFO?.sym?.textContent || '').trim().toUpperCase
 function applyTfLocalization(tf){
   window.CYCLA.currentTF = tf;   // <— new: share current TF with Screener early
   currentTF = tf;
-
+if (TF_BTN) TF_BTN.textContent = tf;
 // notify the bus (idempotent)
 BUS.dispatchEvent(new CustomEvent('cycla:chart:tf', { detail:{ tf } }));
 
@@ -1312,7 +1311,6 @@ async function load(symbolInput, tfInput){
 lastMarkers = [];                               // reset signal delta
 current.buf = { price:[], osc:[], up:[], dn:[] }; // init local buffers
 
-      TF_BTN.textContent = tf;
 INFO.sym.textContent = toUiSymbol(symbol);
       INFO.name.textContent = '—';
       INFO.last.textContent = 'Last: —';
