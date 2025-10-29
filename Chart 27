@@ -755,7 +755,7 @@ function crosshairTimeFormatter(t, tf){
   const SMFT_PARAMS = { xi: 13.0, eSatPct: 5.0, gamma: 5.0, atrLen: 13 };
 
   // Oscillator (Δ of SMFT close, normalized by ATR-RMA), with adaptive hysteresis bands
-  const OSC_PARAMS = { bandK: 0.55, bandLen: 55 }; // k per your spec; bands from RMA(|osc|)
+  const OSC_PARAMS = { bandK: 0.03, bandLen: 03 }; // k per your spec; bands from RMA(|osc|)
   function trueRange(h, l, prevClose){
     if(prevClose == null) return h - l;
     const a = h - l;
