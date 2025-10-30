@@ -34,17 +34,38 @@ Coinbase
 API_KEY_NAME = organizations/6b76bfde-6445-4fe2-9e39-85db54847491/apiKeys/ed72ce59-18f3-41ce-9754-91cef19bf7a3
 PRIVATE_KEY = -----BEGIN EC PRIVATE KEY-----\nMHcCAQEEILhbvkZWCXOCL6fwT0J8U7k8oMHVQ4GOHabfag2NmS/KoAoGCCqGSM49\nAwEHoUQDQgAEPtd1wIg81KCgXll16/riioYG5r6+sKMXGO6UwA+WbGrotBAF7x/W\nGOQAJCncF08xK5wT72WNT6uiVaEsQRibfg==\n-----END EC PRIVATE KEY-----\n
 
+ALLOW_ORIGIN
 
+API_KEY_NAME
 
-CHART CANDLES COLOR SCHEME
-:root{
-  --up: #14B8A6;         /* teal fill */
-  --up-stroke: #0F766E;  /* invisible preferred */
-  --down: #723085;       /* purple fill */
-  --down-stroke: #6D28D9;/* invisible preferred */
-  --wick: #0A1F33;       /* invisible preferred */
-  --fill-alpha: .89;     /* fibonacci looks inspired looks best */
-}
+API_URI
 
+AUTO
+
+DEFAULT_TZ
+
+ORDER_USD
+
+PORT
+
+PRIVATE_KEY
+
+RENDER_ORIGIN
+
+RETRY_MS
+
+RH_API_KEY
+
+RH_BASE
+
+RH_PRIVATE_KEY_BASE64
+
+TD_KEY
+
+TD_RPM
+
+TIMEOUT_MS
+
+TWELVE_API_KEY
 
 
