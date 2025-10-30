@@ -17,7 +17,7 @@
         <label class="cp-sr-only" for="cp-search">Search</label>
         <input id="cp-search" class="cp-tool cp-search" type="text" placeholder="BTCUSD, AAPL, EURUSD" />
 <button class="cp-tool cp-tf" type="button" aria-label="Timeframe">30m</button>
-        <button class="cp-tool cp-w"  type="button" aria-label="Wicks">W</button>
+<button class="cp-tool cp-w" type="button" aria-label="Add to Watchlist">W</button>
       </div>
 
       <!-- Top-center info (377x34) -->
@@ -229,6 +229,7 @@ window.CYCLA.GATE_PCT = 0.80; // 1.0 = close-only
 window.CYCLA.TD_KEY = TD_KEY;                     // expose key for Screener fallback
 window.CYCLA.bus = window.CYCLA.bus || new EventTarget();
 const BUS = window.CYCLA.bus;
+
 window.CYCLA.currentTF = window.CYCLA.currentTF || DEFAULT_TF;
 
 // canonical chart state the rest of the app can read
@@ -236,9 +237,18 @@ window.CYCLA.currentSymbol = window.CYCLA.currentSymbol || '';
 window.CYCLA.lastPrice     = window.CYCLA.lastPrice ?? undefined;
 
 const RELAY = "https://spectra-trade-bot.onrender.com";
-window.CYCLA.RELAY = RELAY; // ✅ expose to other widgets
- const DAEMON = "http://localhost:8080";   // local auto-daemon URL
-  window.CYCLA.DAEMON = DAEMON;             // expose to other widgets
+window.CYCLA.RELAY = RELAY;
+
+// Prefer an explicit data-attribute if present; otherwise:
+// - use localhost daemon only when the page itself is on localhost
+// - fall back to the https relay in all other cases (avoids mixed content)
+const IS_LOCAL_PAGE = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+const DAEMON =
+  (ROOT.getAttribute('data-daemon') || '').trim() ||
+  (IS_LOCAL_PAGE ? 'http://localhost:8080' : RELAY);
+
+window.CYCLA.DAEMON = DAEMON;
+
 window.CYCLA.ORDER_USD = 3;   // default USD/ trade
 window.CYCLA.STEP_SECONDS ??= 60; // default per-step timeout (BUY/SELL legs)
 
@@ -282,10 +292,8 @@ if (!window.__CYCLA_FETCH_LOGGER__) {
     return res;
   };
 }
+
 // ---------------------------------------------------------------------------
-
-let AUTO = false;
-
 let _loading = false;
 async function safeLoad(sym, tf){
   if (_loading) return;
@@ -297,112 +305,6 @@ async function safeLoad(sym, tf){
 let current = { buf: { price: [] } };
 let lastMarkers = []; // <-- keep this single, early declaration
 
-function toProductId(sym){
-  const s = String(sym||'').toUpperCase().replace(/\s+/g,'').replace(/\//g,'-');
-  if (s.includes('-')) return s; // already hyphenated
-  const QUOTES = ['USDC','USD','EUR','GBP']; // longest first so USDC beats USD
-  for (const q of QUOTES){
-    if (s.endsWith(q) && s.length > q.length){
-      return s.slice(0, -q.length) + '-' + q;
-    }
-  }
-  return s; // fallback (will be rejected by isCoinbaseProduct)
-}
-
-function isCoinbaseProduct(id){
-  const m = String(id||'').toUpperCase().match(/^([A-Z0-9]+)-(USD|USDC|EUR|GBP)$/);
-  if (!m) return false;
-  const base = m[1];
-  return /[A-Z]/.test(base); // must contain at least one letter
-}
-
-window.CYCLA.bus.addEventListener("cycla:auto:start", () => {
-  // manual-only: ignore any attempt to start AUTO
-  AUTO = false;
-  console.debug('[AUTO] ignored (manual-only mode)');
-});
-window.CYCLA.bus.addEventListener("cycla:auto:stop",  () => {
-  AUTO = false;
-  console.debug('[AUTO] already off (manual-only mode)');
-});
-
-// ─── Order de-dupe + queue (place ABOVE the listener) ───
-const ORDER_TTL_MS    = 70_000;   // ignore repeat (symbol|tf|time|side) for 70s
-const ORDER_SPACING_MS=   400;    // min spacing between POSTs
-const MAX_RETRIES     =     6;    // retry 429s with backoff
-
-const _seen = new Map();          // key -> firstSeen
-
-function _gcSeen(){
-  const now = Date.now();
-  for (const [k, t] of _seen){
-    if (now - t > ORDER_TTL_MS) _seen.delete(k);
-  }
-}
-
-function _markIfNew(key){
-  _gcSeen();
-  if (_seen.has(key)) return false;
-  _seen.set(key, Date.now());
-  return true;
-}
-
-const _q = [];
-let _draining = false;
-let _lastSentAt = 0;
-
-async function _drainQueue(){
-  if (_draining) return;
-  _draining = true;
-
-  while (_q.length){
-    const job = _q.shift();
-    const symUI = job.uiSym; // e.g. "BTCUSD"
-
-    // client-side spacing
-    const wait = Math.max(0, ORDER_SPACING_MS - (Date.now() - _lastSentAt));
-    if (wait) await new Promise(r => setTimeout(r, wait));
-    _lastSentAt = Date.now();
-
-    // POST with 429 backoff
-    let attempt = 0;
-    let backoff = 500;
-    let success = false;
-
-    for (;;){
-      const res = await fetch(`${RELAY}/order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(job.body)
-      });
-
-      if (res.ok) {
-        success = true;
-        break;
-      }
-      if (res.status !== 429 || attempt >= MAX_RETRIES) {
-        success = false;
-        break;
-      }
-
-      // still rate-limited → stay "pending"
-      await new Promise(r => setTimeout(r, backoff + Math.floor(Math.random()*250)));
-      backoff = Math.min(backoff * 2, 8000);
-      attempt++;
-    }
-
-    // tell Trades HUD final status for this leg
-    window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
-      detail: {
-        symbol: symUI,
-        status: success ? 'ok' : 'fail'
-      }
-    }));
-  }
-
-  _draining = false;
-}
-
 function decimals(x){ const s=String(x); const i=s.indexOf('.'); return i<0?0:s.length-i-1; }
 
 // upgrade helper to support 'ceil'
@@ -413,116 +315,28 @@ function roundToStep(v, step, mode='round'){
   return +(r * step).toFixed(n);
 }
 
-// Coarse defaults that work well for Coinbase spot if you don't fetch per-product meta.
-// USD/USDC/EUR/GBP: 0.01 for prices >= 1; 0.0001 for sub-dollar alts.
-function priceStepFor(quote, p){
-  const q = String(quote||'').toUpperCase();
-  if (q==='USD' || q==='USDC' || q==='EUR' || q==='GBP'){
-    return p < 1 ? 0.0001 : 0.01;
-  }
-  return 0.00000001; // fallback for crypto quotes
-}
-
 // --- constants reused from Trades panel ---
-const BASE_SIZE_STEP = 0.000001;
 
-// AUTO order consumer: identical semantics to manualOrder,
-// BUT triggered automatically when an on-chart arrow prints.
-window.CYCLA.bus.addEventListener("cycla:signal", async (e) => {
-  if (!window?.CYCLA?.AUTO_ENABLED) return;  // manual-only: never consume signals
-  if (!AUTO) return;
+/**
+ * Manual-only chart:
+ * We intentionally remove the chart-side AUTO consumer so only the server
+ * worker can place trades. The chart no longer listens to `cycla:signal`
+ * to POST /order.
+ *
+ * If you ever want to re-enable chart AUTO from the chart itself, restore
+ * the removed listener here.
+ */
 
-const { symbol, side, tf, time, price, printed } = e.detail;
-if (!printed) return; // ⟵ only trade fully printed markers
-
-  // --- TF freeze per symbol (same safety you already had)
-  try {
-    const symKey = String(symbol||'').toUpperCase().replace(/[\/\-\s]/g,''); // "BTCUSD"
-    const frozen = (window?.CYCLA?.tfBySymbol||{})[symKey];
-    if (frozen && String(frozen).toUpperCase() !== String(tf).toUpperCase()) {
-      console.debug('[AUTO] drop (TF mismatch)', { symbol: symKey, tf, frozen });
-      return;
-    }
-  } catch {}
-
-  const product_id = toProductId(symbol); // "BTC-USD"
-  if (!isCoinbaseProduct(product_id)){
-    console.warn("[AUTO] skip non-CB product", product_id);
-    return;
+// (optional hardening: make AUTO_ENABLED immutable false on the chart)
+try {
+  if (window?.CYCLA) {
+    Object.defineProperty(window.CYCLA, 'AUTO_ENABLED', { value: false, writable: false });
   }
+} catch {}
 
-  if (!Number.isFinite(price) || price <= 0){
-    console.warn("[AUTO] bad ref price", price);
-    return;
-  }
-
-  // Tick rounding for limit price,
-  // BUY floors, SELL ceils.
-  const [, quote] = product_id.split('-');
-  const pStep = priceStepFor(quote, price);
-  const priceRounded = (side === 'SELL')
-    ? roundToStep(price, pStep, 'ceil')
-    : roundToStep(price, pStep, 'floor');
-
-  // Size calc (~$3 buys or dump position on SELL)
-  const uiSym = product_id.replace('-', ''); // "BTCUSD"
-const rawSz = (typeof window.CYCLA.chooseQtyForSidePx === 'function')
-? await window.CYCLA.chooseQtyForSidePx(uiSym, side, priceRounded)
-: (side === 'BUY' ? (window.CYCLA.ORDER_USD / priceRounded) : 0); // fallback
-  const sizeRounded = roundToStep(rawSz, BASE_SIZE_STEP, 'floor');
-
-  // Sanity check
-  if (!Number.isFinite(priceRounded) || priceRounded <= 0 ||
-      !Number.isFinite(sizeRounded)  || sizeRounded  <= 0){
-    console.warn("[AUTO] skip, invalid rounded px/qty", {
-      priceRounded, sizeRounded, rawSz
-    });
-    return;
-  }
-
-  // Hard de-dupe: don't resubmit same bar/side twice
-  const key = `${symbol}|${tf}|${time}|${side}`;
-  if (!_markIfNew(key)) {
-    return;
-  }
-
-  // HUD: mark pending
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:status', {
-    detail: { symbol: uiSym, status: 'pending' }
-  }));
-
-  // P/L ledger pre-books it
-  const usd = Number(window?.CYCLA?.ORDER_USD ?? 3);
-  window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:order:queued', {
-    detail: {
-      symbol: uiSym,
-      tf,
-      side,
-      time,
-      price: priceRounded,
-      qty:   sizeRounded,
-      usd
-    }
-  }));
-
-  // Lock this ticker to this TF for AUTO going forward
-  (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
-
-  // Queue actual relay order
-_q.push({
-  uiSym,
-  body: {
-    symbol: product_id,
-    side,
-    price: priceRounded,
-    size:  sizeRounded,
-    seconds: window.CYCLA.STEP_SECONDS,
-    client_order_id: `${symbol}-${tf}-${time}-${side}`
-  }
-});
-
-  _drainQueue();
-});
+// ───────────────────────────────────────────────────────────────────────────
+// (intentionally no listener here by design)
+// ───────────────────────────────────────────────────────────────────────────
 
 // Surface missing-key to Screener's ECU
 if (!TD_KEY) {
@@ -564,24 +378,75 @@ const tf = window.CYCLA.currentTF || DEFAULT_TF;
   };
   const TF_BTN = ROOT.querySelector('.cp-tf');
   const TF_MENU = ROOT.querySelector('#cp-tf-menu');
-  const SEARCH  = ROOT.querySelector('#cp-search');
-  const W_BTN   = ROOT.querySelector('.cp-w');
+
+// Unique menu id per widget instance (avoids duplicate IDs if multiple widgets)
+const MENU_ID = `cp-tf-menu-${Math.random().toString(36).slice(2,7)}`;
+if (TF_MENU) TF_MENU.id = MENU_ID;
+
+// A11y wiring for TF menu
+if (TF_BTN) {
+  TF_BTN.setAttribute('aria-haspopup', 'menu');
+TF_BTN.setAttribute('aria-controls', MENU_ID);
+  TF_BTN.setAttribute('aria-expanded', 'false');
+}
+
+if (TF_BTN && TF_MENU) {
+  // Toggle open/close + keep aria-expanded accurate
+  TF_BTN.addEventListener('click', () => {
+    const willOpen = TF_MENU.classList.contains('cp-dd--hidden'); // state *before* toggle
+    TF_MENU.classList.toggle('cp-dd--hidden');
+    TF_BTN.setAttribute('aria-expanded', String(willOpen));        // reflect new state
+  });
+
+  // Pick a TF → close the menu and reset aria-expanded
+  TF_MENU.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tf = btn.getAttribute('data-tf');
+      TF_MENU.classList.add('cp-dd--hidden');
+      TF_BTN.setAttribute('aria-expanded', 'false');
+      snapshotViewport();
+      safeLoad(current.symbol, tf);
+    });
+  });
+
+  // Click-away close
+  document.addEventListener('click', (e) => {
+    if (!TF_MENU.contains(e.target) && e.target !== TF_BTN) {
+      TF_MENU.classList.add('cp-dd--hidden');
+      TF_BTN.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Hover-out close (optional)
+  TF_MENU.addEventListener('mouseleave', () => {
+    TF_MENU.classList.add('cp-dd--hidden');
+    TF_BTN.setAttribute('aria-expanded', 'false');
+  });
+
+  // ESC to close, then return focus to the button
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !TF_MENU.classList.contains('cp-dd--hidden')) {
+    TF_MENU.classList.add('cp-dd--hidden');
+    TF_BTN.setAttribute('aria-expanded', 'false');
+    TF_BTN.focus?.();
+  }
+});
+  }
+
+const SEARCH  = ROOT.querySelector('#cp-search');
+const W_BTN   = ROOT.querySelector('.cp-w');
 
 // Chart: send symbol + TF to Trades widget
-W_BTN.addEventListener('click', () => {
+if (W_BTN) W_BTN.addEventListener('click', () => {
   try {
-    // UI symbol from the chart header (fallback to current.symbol)
     const uiSym = (
       INFO?.sym?.textContent || current?.symbol || ''
     ).toString().trim().toUpperCase().replace(/[\/\-\s]/g, '');
-
     if (!uiSym) return;
 
-    // Freeze the TF currently shown on the chart
-const tf = (window.CYCLA?.currentTF || current?.tf || DEFAULT_TF);
-    (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;   // 🔒 freeze per symbol
+    const tf = (window.CYCLA?.currentTF || current?.tf || DEFAULT_TF);
+    (window.CYCLA.tfBySymbol ||= {})[uiSym] = tf;
 
-    // Tell the rest of the app this symbol+TF was “watched”
     window.CYCLA.bus.dispatchEvent(new CustomEvent('cycla:watchlist:add', {
       detail: { symbol: uiSym, tf }
     }));
@@ -870,32 +735,61 @@ function crosshairTimeFormatter(t, tf){
   }
 
   // ───────────────────────── TwelveData fetchers ─────────────────────────
-  async function fetchTDSeries(symbol, interval, size=1000){
-    if(!TD_KEY){ throw new Error('Missing TwelveData API key. Add data-td-key on #cycla-chart-widget.'); }
-    const url = new URL('https://api.twelvedata.com/time_series');
-    url.searchParams.set('symbol', symbol);
-    url.searchParams.set('interval', interval);
-    url.searchParams.set('outputsize', String(size));
-    url.searchParams.set('timezone', 'UTC');         // keep data in UTC
-    url.searchParams.set('format', 'JSON');
-    url.searchParams.set('order', 'ASC');
-    url.searchParams.set('apikey', TD_KEY);
-
-    const res = await fetch(url.toString());
-    const data = await res.json();
-    if(data.status === 'error' || !data.values){
-      const msg = data.message || 'TwelveData error';
-      throw new Error(msg);
-    }
-    // Map to Lightweight Charts format (ascending time)
-    return data.values.map(v => ({
-      time:  toEpoch(v.datetime), // seconds (UTC)
-      open:  parseFloat(v.open),
-      high:  parseFloat(v.high),
-      low:   parseFloat(v.low),
-      close: parseFloat(v.close),
-    }));
+async function fetchTDSeries(symbol, interval, size = 1000){
+  if (!TD_KEY) {
+    throw new Error('Missing TwelveData API key. Add data-td-key on #cycla-chart-widget.');
   }
+
+  const url = new URL('https://api.twelvedata.com/time_series');
+  url.searchParams.set('symbol', symbol);
+  url.searchParams.set('interval', interval);
+  url.searchParams.set('outputsize', String(size));
+  url.searchParams.set('timezone', 'UTC');   // keep data in UTC
+  url.searchParams.set('format', 'JSON');
+  url.searchParams.set('order', 'ASC');
+  url.searchParams.set('apikey', TD_KEY);
+
+  let res;
+  try {
+    // no-store to avoid any odd intermediate caching
+    res = await fetch(url.toString(), { cache: 'no-store' });
+  } catch (err) {
+    throw new Error('Network error fetching TwelveData time_series: ' + (err?.message || err));
+  }
+
+  // ✅ Early HTTP status check (catches 429, 5xx, etc.)
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const txt = await res.text();
+      try {
+        const j = JSON.parse(txt);
+        if (j?.message) detail = ` ${j.message}`;
+        else if (txt)    detail = ` ${txt.slice(0, 200)}`;
+      } catch {
+        if (txt) detail = ` ${txt.slice(0, 200)}`;
+      }
+    } catch {}
+    throw new Error(`HTTP ${res.status} ${res.statusText} — TwelveData time_series.${detail}`);
+  }
+
+  const data = await res.json();
+
+  // TwelveData often returns 200 with {status:"error", message:"..."}
+  if (data.status === 'error' || !data.values) {
+    const msg = data.message || 'TwelveData error';
+    throw new Error(msg);
+  }
+
+  // Map to Lightweight Charts format (ascending time)
+  return data.values.map(v => ({
+    time:  toEpoch(v.datetime), // seconds (UTC)
+    open:  parseFloat(v.open),
+    high:  parseFloat(v.high),
+    low:   parseFloat(v.low),
+    close: parseFloat(v.close),
+  }));
+}
 
   async function getBars(symbol, tfKey, wantBars=600){
     const spec = TF[tfKey];
@@ -991,26 +885,16 @@ chart.timeScale().subscribeVisibleTimeRangeChange((vis) => {
   });
 
 // —— Persistent viewport (shared across assets/TF) ——
-// Will remember how many bars are visible and where you scrolled.
-window.CYCLA = window.CYCLA || {};
-window.CYCLA.VIEW = window.CYCLA.VIEW || {
-  logical: null,        // from getVisibleLogicalRange()
-  oscLogical: null,     // same for the osc pane
-  // optional vertical zoom (guarded; may not be supported on all builds)
-  priceRange: null,     // {min, max} from priceScale('right').getVisiblePriceRange()
-};
 
 function snapshotViewport() {
+  const VIEW = (window.CYCLA.VIEW ||= { logical: null, oscLogical: null, priceRange: null });
   try {
     const lr  = chart.timeScale().getVisibleLogicalRange?.();
     const olr = chartOsc.timeScale().getVisibleLogicalRange?.();
-    const pr  = chart.priceScale('right')?.getVisiblePriceRange?.(); // may be undefined on some builds
-
-    if (lr)  window.CYCLA.VIEW.logical = lr;
-    if (olr) window.CYCLA.VIEW.oscLogical = olr;
-    if (pr && Number.isFinite(pr.min) && Number.isFinite(pr.max)) {
-      window.CYCLA.VIEW.priceRange = { min: pr.min, max: pr.max };
-    }
+    const pr  = chart.priceScale('right')?.getVisiblePriceRange?.();
+    if (lr)  VIEW.logical = lr;
+    if (olr) VIEW.oscLogical = olr;
+    if (pr && Number.isFinite(pr.min) && Number.isFinite(pr.max)) VIEW.priceRange = { ...pr };
   } catch {}
 }
 
@@ -1067,108 +951,10 @@ let currentTF = DEFAULT_TF;
   // Maps for quick lookup of osc value by time
   let oscByTime = new Map();
 
-// Tolerant price lookup: last bar whose time <= t (handles resample/rounding drift)
-function priceAtTime(t){
-  const bars = current?.buf?.price || [];
-  let lo = 0, hi = bars.length - 1, ans = -1;
-  while (lo <= hi){
-    const mid = (lo + hi) >> 1;
-    if (bars[mid].time <= t){ ans = mid; lo = mid + 1; }
-    else { hi = mid - 1; }
-  }
-  return ans >= 0 ? bars[ans].close : undefined;
-}
-
-// Emit-level de-dupe bookkeeping (unchanged)
-const __evtSeen = new Map(); // key -> expiry timestamp (ms)
-
-function __evtKey(symbol, tf, time, side) {
-  return `${symbol}|${String(tf || '').toUpperCase()}|${time}|${side}`;
-}
-
-function __rememberOnce(key, ttlMs = 15 * 60 * 1000) { // 15 min TTL
-  const now = Date.now();
-  // GC expired entries
-  for (const [k, until] of __evtSeen) {
-    if (until <= now) __evtSeen.delete(k);
-  }
-  if (__evtSeen.has(key)) return false;
-  __evtSeen.set(key, now + ttlMs);
-  return true;
-}
-
 // ✅ UPDATED emitTradeSignals: NO feedFreshEnough() gating
 function emitTradeSignals(symbolUI, tf, prevMarkers, nextMarkers) {
-  try {
-    const symbol = String(symbolUI || '')
-      .toUpperCase()
-      .replace(/[\/\-\s]/g, '');
-    if (!symbol || !tf) return;
-
-    // NOTE: we REMOVED:
-    // if (!feedFreshEnough(tf)) { ... return; }
-
-    // Build set of markers we already had, so we only react to brand-new ones
-    const prevSet = new Set(
-      (prevMarkers || []).map(
-        m => `${m?.time}|${m?.text || m?.position || ''}`
-      )
-    );
-
-    for (const m of (nextMarkers || [])) {
-      if (!m || typeof m.time !== 'number') continue;
-
-      // Only consider markers that are NEW this frame
-      const markerKey = `${m.time}|${m.text || m.position || ''}`;
-      if (prevSet.has(markerKey)) continue;
-
-      // Resolve BUY/SELL side from marker
-      let side = String(m?.text || '').toUpperCase();
-      if (side !== 'BUY' && side !== 'SELL') {
-        if (m.position === 'belowBar') side = 'BUY';
-        else if (m.position === 'aboveBar') side = 'SELL';
-        else continue; // can't classify, skip
-      }
-
-      // Fetch the price at that marker's bar time
-      const px = Number(m?.price ?? NaN);
-      const price = Number.isFinite(px) ? px : priceAtTime(m.time);
-      if (!Number.isFinite(price) || price <= 0) continue;
-
-      // Emit-level de-dupe so we don't spam repeats for same bar/side
-      const onceKey = __evtKey(symbol, tf, m.time, side);
-      if (!__rememberOnce(onceKey)) continue;
-
- // Compute printed/progress so Trades can gate strictly on "fully printed"
-const lastBar = (current?.buf?.price || []).at(-1);
-const tfSec = tfSeconds(tf);
-const nowSec = Math.floor(Date.now() / 1000);
-const isCurrentBar = !!lastBar && (m.time === lastBar.time);
-const progress = isCurrentBar ? Math.max(0, Math.min(1, (nowSec - m.time) / tfSec)) : 1;
-// "printed" means bar is closed OR at/above gate threshold on live bar
-const GATE_PCT = (window?.CYCLA?.GATE_PCT ?? 0.80);
-const printed = !isCurrentBar || (progress >= GATE_PCT);
-
-// 🚫 MANUAL-ONLY: do not emit any auto-trade intents from the chart
-if (window?.CYCLA?.AUTO_ENABLED) {
-  window.CYCLA.bus.dispatchEvent(
-    new CustomEvent('cycla:signal', {
-      detail: {
-        symbol, tf, side, time, price, printed, progress,
-        from: 'chart',
-        closeOnly: (window?.CYCLA?.GATE_PCT === 1.0)
-      }
-    })
-  );
-} else {
-  // keep markers for visuals, but never send orders
-  // console.debug('[AUTO] suppressed signal', { symbol, tf, side, time });
-}
-
-    }
-  } catch (e) {
-    console.warn('emitTradeSignals failed:', e);
-  }
+  // Manual-only chart: intentionally disabled.
+  // We keep this stub to preserve call sites and future re-enablement.
 }
 
   function updateCrosshairFrom(src, param){
@@ -1519,16 +1305,16 @@ if (Number.isFinite(ln)) {
       current.tf = tf;
 
       // Search focus UX
-SEARCH.value = toUiSymbol(symbol);
+if (SEARCH) SEARCH.value = toUiSymbol(symbol);
 
     }catch(err){
       console.error(err);
     }
   }
 
-  // Search: Enter to load
-SEARCH.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter'){
+// Search: Enter to load (null-guarded)
+if (SEARCH) SEARCH.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
     const v = (SEARCH.value || '').trim();
     if (v) {
       snapshotViewport();                 // ⬅️ preserve current zoom/scroll
@@ -1537,39 +1323,7 @@ SEARCH.addEventListener('keydown', (e)=>{
   }
 });
 
-  // TF menu toggle + selection
-  TF_BTN.addEventListener('click', ()=>{
-    TF_MENU.classList.toggle('cp-dd--hidden');
-  });
-
-// Close the TF menu when clicking outside it
-document.addEventListener('click', (e) => {
-  if (TF_MENU && !TF_MENU.contains(e.target) && e.target !== TF_BTN) {
-    TF_MENU.classList.add('cp-dd--hidden');
-  }
-});
-
-  TF_MENU.addEventListener('mouseleave', ()=> TF_MENU.classList.add('cp-dd--hidden'));
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && current.poll) {
-    clearInterval(current.poll);
-    current.poll = null;
-  } else if (!document.hidden) {
-    snapshotViewport();                 // ⬅️ preserve current zoom/scroll
-    safeLoad(current.symbol, current.tf);
-  }
-});
-
 window.addEventListener('beforeunload', () => current.poll && clearInterval(current.poll));
-
-TF_MENU.querySelectorAll('button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const tf = btn.getAttribute('data-tf');
-    TF_MENU.classList.add('cp-dd--hidden');
-    snapshotViewport();                 // ⬅️ preserve current zoom/scroll
-    safeLoad(current.symbol, tf);
-  });
-});
 
 // Bootstrap (safer)
 safeLoad(DEFAULT_SYMBOL, DEFAULT_TF);
