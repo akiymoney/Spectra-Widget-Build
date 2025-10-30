@@ -1,0 +1,167 @@
+// © Cycla Quant Capital / All Rights Reserved
+// Akiymo Action, Spectral Memory Field Theory, Auto Trading Strategy
+
+//@version=6
+strategy("Cycla Q Spectra", overlay=false, max_labels_count=0, max_lines_count=500,
+     // ── Requested strategy settings ──
+     initial_capital = 1000,                               // starting capital: $1,000
+     default_qty_type = strategy.percent_of_equity,        // equity sizing
+     default_qty_value = 90,                               // equity: 90%
+     commission_type = strategy.commission.percent,        // commission: 0.1%
+     commission_value = 0.1,
+     slippage = 0,
+     pyramiding = 0)                                       // prevent stacking entries
+
+// Safety cap: keep well under TV's 1e12 hard limit
+strategy.risk.max_position_size(1e9)                       // cap at 1,000,000,000 shares
+
+// ───────────────────────── Inputs ─────────────────────────
+grpMem   = "Spectral Memory (SMFT) Parameters"
+xiCosmic = input.float(3.0, "ξ (Cosmic memory cap)", minval=1.0, step=0.25, group=grpMem)
+eSatPct  = input.float(8.0,  "E_sat% (ATR% at which memory compresses)", minval=0.1, step=0.1, group=grpMem)
+gamma    = input.float(8.0,  "γ (nonlinearity)", minval=0.1, step=0.1, group=grpMem)
+atrLen   = input.int(5,     "ATR length (RMA)", minval=1, group=grpMem)
+
+grpViz   = "Visualization"
+asHist   = input.bool(true, "Plot as histogram (Δ)", group=grpViz)
+lineWidth= input.int(1,     "Line / bar width", minval=1, maxval=5, group=grpViz)
+bullCol  = input.color(color.rgb(94,234,212), "Bull (Δ>0)", group=grpViz)
+bearCol  = input.color(color.rgb(140,61,225), "Bear (Δ<0)", group=grpViz)
+zeroCol  = input.color(color.new(color.rgb(230,237,247), 25), "Zero line", group=grpViz)
+showTB   = input.bool(false, "Show status table (debug)", group=grpViz)
+
+grpHx    = "Whipsaw Control (SMFT-adaptive)"
+useBand  = input.bool(true, "Use adaptive hysteresis band", group=grpHx)
+kBand    = input.float(0.21, "Band scale (k)", minval=0.0, step=0.05, group=grpHx)
+confBars = input.int(0, "Optional confirmation bars (0 = none)", minval=0, maxval=10, group=grpHx)
+
+// ── Strategy toggles (added) ──
+grpStrat  = "Strategy Controls"
+enableShorts = input.bool(false, "Enable SHORT entries (default: long-only)", group=grpStrat)
+
+// ── (NEW) SMFT Candles controls ──
+grpSmftC = "SMFT Candles (synthetic OHLC in this pane)"
+showSmftCandles = input.bool(false, "Show SMFT Candles here", group=grpSmftC)
+smftBullCol = input.color(color.rgb(94,234,212), "Bull body", group=grpSmftC)
+smftBearCol = input.color(color.rgb(140,61,225), "Bear body", group=grpSmftC)
+smftWickCol = input.color(color.new(color.rgb(230,237,247), 30), "Wicks", group=grpSmftC)
+smftBordCol = input.color(color.new(color.rgb(230,237,247), 50), "Borders", group=grpSmftC)
+
+// ─────────────────── Core utilities (RMA/ATR%) ───────────────────
+float tr     = ta.tr(true)
+float atr    = ta.rma(tr, atrLen)
+float atrPct = 100.0 * atr / math.max(1e-9, close)
+
+// Effective memory length ξ_mem and variable-alpha EMA
+// ξ_mem = ξ_cosmic / (1 + (ATR% / E_sat%)^γ)  → α = 2 / (ξ_mem + 1)
+float xiMem        = xiCosmic / (1.0 + math.pow(atrPct / eSatPct, gamma))
+float xiMemClamped = math.max(1.0, xiMem)
+float alpha        = 2.0 / (xiMemClamped + 1.0)
+
+// ─────────────────── SMFT recursive filtered close ───────────────────
+var float cP = na
+cP := na(cP[1]) ? close : (cP[1] + alpha * (close - cP[1]))
+
+// ─────────────────── Δ Oscillator ───────────────────
+float delta = cP - nz(cP[1], cP)
+color dColor = delta >= 0 ? bullCol : bearCol
+
+// ─────────────────── Adaptive Hysteresis (Schmitt trigger) ───────────────────
+float band = useBand ? kBand * alpha * atr : 0.0
+
+var int state = 0
+var int upCnt = 0
+var int dnCnt = 0
+
+upCnt := (delta >  band) ? (upCnt[1] + 1) : 0
+dnCnt := (delta < -band) ? (dnCnt[1] + 1) : 0
+
+if na(state[1])
+    state := delta >= 0 ? 1 : -1
+else
+    if dnCnt >= confBars and delta < -band and state != -1
+        state := -1
+    else if upCnt >= confBars and delta > band and state != 1
+        state := 1
+
+bool xUp   = (state == 1  and state[1] != 1)
+bool xDown = (state == -1 and state[1] != -1)
+
+// ─────────────────── EDIT: One-shot Buy/Sell labels (fire only after opposite fired) ───────────────────
+var int lastSig = 0   // 1 = last fired was BUY, -1 = SELL, 0 = none yet
+bool buyCond  = useBand and delta >  band and delta >  delta[1]
+bool sellCond = useBand and delta <= -band and delta <  delta[1]
+
+// Gate so same-side repeats are suppressed
+bool buySignal  = buyCond  and lastSig != 1
+bool sellSignal = sellCond and lastSig != -1
+
+if buySignal
+    lastSig := 1
+else if sellSignal
+    lastSig := -1
+
+plotshape(buySignal,  title="BUY",  style=shape.labelup,   location=location.belowbar, color=bullCol, text="BUY",  textcolor=color.white, size=size.tiny)
+plotshape(sellSignal, title="SELL", style=shape.labeldown, location=location.abovebar,  color=bearCol, text="SELL", textcolor=color.white, size=size.tiny)
+
+// ─────────────────── Simple strategy signals (1:1 with existing BUY/SELL) ───────────────────
+// Long-only by default: enter long on BUY, close on SELL.
+// If shorts are enabled, also enter short on SELL and close on BUY.
+if buySignal
+    // close short if enabled & open
+    if enableShorts
+        strategy.close("Short")
+    // enter/flip long
+    strategy.entry("Long", strategy.long)
+
+if sellSignal
+    // close long if open
+    strategy.close("Long")
+    // optionally enter/flip short
+    if enableShorts
+        strategy.entry("Short", strategy.short)
+
+// ─────────────────── (NEW) SMFT Candles — synthetic OHLC using same α ───────────────────
+var float oP = na
+var float hP = na
+var float lP = na
+var float cP2 = na
+
+oP  := na(oP[1])  ? open  : (oP[1]  + alpha * (open  - oP[1]))
+hP  := na(hP[1])  ? high  : (hP[1]  + alpha * (high  - hP[1]))
+lP  := na(lP[1])  ? low   : (lP[1]  + alpha * (low   - lP[1]))
+cP2 := na(cP2[1]) ? close : (cP2[1] + alpha * (close - cP2[1]))
+
+bool smftRising = cP2 > nz(cP2[1], cP2)
+color smftBodyCol = smftRising ? smftBullCol : smftBearCol
+
+plotcandle(
+     showSmftCandles ? oP : na,
+     showSmftCandles ? hP : na,
+     showSmftCandles ? lP : na,
+     showSmftCandles ? cP2 : na,
+     title       = "SMFT Candles (pane)",
+     color       = smftBodyCol,
+     wickcolor   = na,
+     bordercolor = na)
+
+// ─────────────────── Plots ───────────────────
+hline(0.0,  "Zero", color=color.gray, linestyle=hline.style_dashed, linewidth=1)
+plot(asHist ? delta : na, title="SMFT Δ (hist)", color=dColor, linewidth=lineWidth, style=plot.style_columns)
+plot(useBand ? +band : na, title="Upper Band", color=color.new(color.teal, 21), linewidth=1, style=plot.style_line)
+plot(useBand ? -band : na, title="Lower Band", color=color.new(color.purple, 34), linewidth=1, style=plot.style_line)
+
+// ─────────────────── Alerts ───────────────────
+alertcondition(xUp,   title="SMFT BUY",  message="CYCLA SMFT Δ crossed above +band (long bias)")
+alertcondition(xDown, title="SMFT SELL", message="CYCLA SMFT Δ crossed below -band (short bias)")
+
+// ─────────────────── (Optional) Status table ───────────────────
+var table tb = na
+if showTB
+    if na(tb)
+        tb := table.new(position.top_right, 1, 6, border_width=1)
+    table.cell( tb, 0, 0, "ξ_mem=" + str.tostring(xiMem, format.mintick) + "\nα="     + str.tostring(alpha, format.mintick) + "\nATR%="  + str.tostring(atrPct, format.mintick) + "\nΔ="     + str.tostring(delta, format.mintick) + (useBand ? "\nBand=" + str.tostring(band, format.mintick) : "") + (barstate.isrealtime ? "\n(realtime)" : "\n(confirmed)"), text_color=color.white, text_size=size.tiny, bgcolor=color.rgb(11,18,34))
+else
+    if not na(tb)
+        table.delete(tb)
+        tb := na
