@@ -177,6 +177,37 @@ const RELAY = String(RELAY_BASE).replace(/\/+$/,'');
 const STEP_SECONDS  = 5;
   const NOTIONAL_USD  = Number(window?.CYCLA?.ORDER_USD ?? 3);
 
+// ───────────────────────── ECU codes (single source of truth) ─────────────────────────
+const ECU_CODE = Object.freeze({
+  READY:       'TW-READY-000',
+  AUTO_MOVED:  'TW-AUTO-MOVED',
+  AUTO_EMPTY:  'TW-AUTO-EMPTY',
+  RELAY_DOWN:  'TW-RELAY-DOWN',
+  KS_ON:       'TW-KS-ON',
+  AUTO_MINQ:   'TW-AUTO-MINQ',
+  AUTO_START:  'TW-AUTO-START',
+  AUTO_COVER:  'TW-AUTO-COVER',
+  AUTO_MISS:   'TW-AUTO-MISS',
+  AUTO_STAT:   'TW-AUTO-STAT',
+  AUTO_STOP:   'TW-AUTO-STOP',
+  AUTO_ERR:    'TW-AUTO-ERR',
+  // NEW diagnostics
+  'TW-RLY-OK':     'TW-RLY-OK',
+  'TW-AUTO-HEART': 'TW-AUTO-HEART',
+  'TW-AUTO-IDLE':  'TW-AUTO-IDLE',
+});
+
+// Optional: expose for other widgets / console
+(window.CYCLA ||= {}).ECU_CODE = ECU_CODE;
+
+// Replace your ecu() with this tiny resolver (back-compatible with raw codes)
+function ecu(level='ok', keyOrCode='TW-OK-100', msg=''){
+  const code = ECU_CODE[keyOrCode] || keyOrCode;
+  if (INFO_BNR) INFO_BNR.textContent = `ECU ${level.toUpperCase()}: [${code}] ${msg}`;
+  const bus = window.CYCLA?.bus;
+  if (bus) bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail:{ level, code, msg } }));
+}
+
   // Single init for CYCLA and bus
   const CY = (window.CYCLA = window.CYCLA || {});
   CY.STEP_SECONDS = STEP_SECONDS;
@@ -195,6 +226,8 @@ const STEP_SECONDS  = 5;
   const BTN_ACLR   = document.getElementById('tp-active-clear');
 const BTN_AUTOBOT = document.getElementById('tp-autobot'); // wired to /auto start/stop
 
+let KS = false;
+
 /* ───────────────── AUTOBOT: wire button to relay /auto ───────────────── */
 
 async function postAuto(path, payload) {
@@ -205,15 +238,115 @@ return fetch(`${RELAY}${path}`, {
   });
 }
 
-function activeToWatchArray() {
-  // active: Map('BTCUSD' -> { sym:'BTCUSD', tf:'5m', led:'idle', ... })
-  const out = [];
-  for (const { sym, tf } of active.values()) {
-    const symbol = uiToRelay(sym);           // e.g. BTCUSD → BTC-USD
-    if (symbol && tf) out.push({ symbol, tf });
+// ───────────────── AUTOBOT ECU: helpers, preflight, coverage ─────────────────
+const strip = (s) => String(s||'').toUpperCase().replace(/[^\w\-\/]/g,''); // keep BTC-USD style
+const keyOfPair = (sym, tf) => `${strip(sym)}@${String(tf||'').toUpperCase()}`;
+
+/**
+ * Preflight all Active symbols:
+ * - relay /status (and KS)
+ * - minQty vs your USD size
+ * - prime LEDs to 'pending'
+ * Returns { ok, ks, targets:[{symbol, tf}] }
+ */
+async function preflightActiveTargets() {
+  // 0) Relay alive + KS
+  try {
+    const r = await fetch(`${RELAY}/status`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (j?.ks) {
+      ecu('warn','TW-KS-ON','Kill-switch is ON; Autobot will not place orders.');
+      return { ok:false, ks:true, targets:[] };
+    }
+  } catch (e) {
+    ecu('err','TW-RELAY-DOWN','/status unreachable.');
+    return { ok:false, ks:false, targets:[] };
   }
-  return out;
+
+  // 1) Symbol checks
+  const targets = [];
+  for (const { sym, tf } of active.values()) {
+    const ui = strip(sym);
+    const relaySym = uiToRelay(ui);                   // BTCUSD → BTC-USD
+    const px = await refPriceFor('BUY', ui);          // mid/ask from relay
+    const size = NOTIONAL_USD / Math.max(1e-9, px);   // proposed qty for $USD
+    let min = 0;
+    try {
+      const r = await fetch(`${RELAY}/dbg/holdings?symbol=${encodeURIComponent(relaySym)}`);
+      const j = await r.json().catch(()=>({}));
+      min = Number(j?.min_qty) || 0;
+    } catch {}
+    if (min && Number.isFinite(size) && size < min) {
+      ecu('warn','TW-AUTO-MINQ',`${ui}@${tf}: size ${size.toFixed(8)} < min ${min}`);
+    }
+    // LED → pending (armed)
+    setLed(ui, 'pending');
+    targets.push({ symbol: relaySym, tf });
+  }
+
+  if (!targets.length) {
+    ecu('warn','TW-AUTO-EMPTY','Active Trades is empty.');
+    return { ok:false, ks:false, targets:[] };
+  }
+  return { ok:true, ks:false, targets };
 }
+
+/**
+ * Coverage check: ensure every Active symbol@TF appears in relay /auto/status.watch
+ * LEDs: ok for covered, fail for missing.
+ */
+let _autoCoverTimer = null;
+
+// REPLACE your coverageOnce() with this version
+async function coverageOnce() {
+  try {
+    const r = await fetch(`${RELAY}/auto/status`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json().catch(()=>({}));
+
+    // accept legacy `watch` or current `watchers` from the relay
+    const arr = Array.isArray(j?.watch) ? j.watch
+             : Array.isArray(j?.watchers) ? j.watchers
+             : [];
+
+    const serverWatch = new Set(
+      arr.map(w => keyOfPair(w.symbol || w.sym, w.tf))
+    );
+
+    let covered = 0, missing = 0;
+    for (const { sym, tf } of active.values()) {
+      const keyA = keyOfPair(uiToRelay(sym), tf);
+      if (serverWatch.has(keyA)) {
+        setLed(sym, 'ok'); covered++;
+      } else {
+        setLed(sym, 'fail'); missing++;
+      }
+    }
+
+if (arr.length) {
+  ecu(missing ? 'err' : 'ok',
+      missing ? 'TW-AUTO-MISS' : 'TW-AUTO-COVER',
+      missing ? `${missing} missing from relay coverage.` : `Server watching ${covered}/${arr.length}.`);
+} else {
+  // PATCH: only warn if AUTO is running or there are Active rows to cover
+  if (AUTO_RUNNING || active.size) {
+    ecu('warn','TW-AUTO-STAT','Relay status has no watch detail; LEDs may not reflect coverage.');
+  }
+}
+} catch (e) {
+  ecu('warn','TW-AUTO-STAT','Coverage check failed.');
+}
+}
+
+function startCoveragePolling() {
+  stopCoveragePolling();
+  _autoCoverTimer = setInterval(coverageOnce, 15000);
+}
+function stopCoveragePolling() {
+  if (_autoCoverTimer) { clearInterval(_autoCoverTimer); _autoCoverTimer = null; }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) coverageOnce(); });
 
 let AUTO_RUNNING = false;
 
@@ -228,25 +361,84 @@ const r = await fetch(`${RELAY}/auto/status`);
   }
 }
 
-async function startAutoFromActive() {
+// ───────────────── ECU DIAGNOSTIC LOOP (always-on) ─────────────────
+const DIAG_MS = 10000;
 
-moveAllWatchToActive();
-
-const targets = activeToWatchArray();
- if (!targets.length) {
-    ecu('warn','TW-AUTO-EMPTY','Active Trades is empty.');
-    return;
+async function diagOnce(){
+  // Relay health + KS
+  try{
+    const r = await fetch(`${RELAY}/status`);
+    const s = await r.json();
+    const ks = !!s.ks;
+    if (ks !== KS){
+      KS = ks;
+      BTN_KS.setAttribute('aria-pressed', KS ? 'true' : 'false');
+    }
+    ecu('ok','TW-RLY-OK', `Relay up • KS:${KS?'ON':'OFF'}`);
+  }catch{
+    ecu('err','TW-RELAY-DOWN','Relay unreachable.');
   }
+
+  // Autobot heartbeat + last activity
+  try{
+    const r = await fetch(`${RELAY}/auto/status`);
+    const j = await r.json();
+    const running = !!j.running;
+    BTN_AUTOBOT.setAttribute('aria-pressed', running ? 'true' : 'false');
+
+    const arr = Array.isArray(j.watch) ? j.watch
+             : Array.isArray(j.watchers) ? j.watchers
+             : [];
+
+    // newest lastAt across all watchers (if present)
+    let latest = null;
+    for (const w of arr){
+      if (w?.lastAt?.t > (latest?.t ?? 0)) latest = { ...w.lastAt, symbol: w.symbol, tf: w.tf };
+    }
+
+    if (running){
+      const tag = latest
+        ? `${String(latest.symbol||'').toUpperCase().replace(/[-/]/g,'')}@${latest.tf} ${latest.side} ~${latest.px}`
+        : 'no signals yet';
+      ecu('ok','TW-AUTO-HEART', `AUTO:ON • n=${arr.length} • last=${tag}`);
+    }else{
+      ecu('warn','TW-AUTO-IDLE','AUTO:OFF');
+    }
+  }catch{
+    // keep quiet here; relay health already reported above
+  }
+}
+
+// run + keep fresh when tab visible
+diagOnce();
+setInterval(diagOnce, DIAG_MS);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) diagOnce(); });
+
+async function startAutoFromActive() {
+  // Move watch → active (keeps TF lock) and render
+  moveAllWatchToActive();
+
+  // ECU preflight (status, KS, minQty hints, LEDs → pending)
+  const pf = await preflightActiveTargets();
+  if (!pf.ok) return;
 
   setBusy(BTN_AUTOBOT, true);
   try {
-  const r = await postAuto('/auto/start', { watch: targets, seconds: STEP_SECONDS, usd: NOTIONAL_USD });
+    // Log the exact payload in console (helps reproduce issues)
+    const payload = { watch: pf.targets, seconds: STEP_SECONDS, usd: NOTIONAL_USD };
+    console.log('[TW] POST /auto/start payload →', payload);
 
+    const r = await postAuto('/auto/start', payload);
     const j = await r.json().catch(()=>({}));
+
     if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
 
     BTN_AUTOBOT.dataset.state = 'ok';
-  ecu('ok','TW-AUTO-START',`Autobot trading ${targets.length} asset(s).`);
+    ecu('ok','TW-AUTO-START',`Autobot trading ${pf.targets.length} asset(s).`);
+
+    // Verify server coverage now and keep it fresh
+    await coverageOnce();
+    startCoveragePolling();
   } catch (err) {
     BTN_AUTOBOT.dataset.state = 'fail';
     ecu('err','TW-AUTO-ERR', String(err?.message || err));
@@ -265,6 +457,9 @@ async function stopAuto() {
     BTN_AUTOBOT.dataset.state = 'fail';
     ecu('err','TW-AUTO-ERR', String(err?.message || err));
   } finally {
+    stopCoveragePolling();                   // ← stop coverage timer
+    // Return LEDs to idle so the operator sees we're no longer armed
+    for (const { sym } of active.values()) setLed(sym, 'idle');
     setBusy(BTN_AUTOBOT, false);
   }
 }
@@ -272,12 +467,17 @@ async function stopAuto() {
 // initialize status on load
 syncAutoStatus();
 
+
 // toggle behavior on click
+// toggle behavior on click  (REPLACE your existing handler)
 BTN_AUTOBOT.addEventListener('click', async () => {
-  await syncAutoStatus();
-  if (AUTO_RUNNING) await stopAuto();
-  else await startAutoFromActive();
-  await syncAutoStatus();
+  const pressed = BTN_AUTOBOT.getAttribute('aria-pressed') === 'true';
+  if (pressed) {
+    await stopAuto();
+  } else {
+    await startAutoFromActive();   // ← moves Watch → Active on first click
+  }
+  await syncAutoStatus();          // refresh pressed state from relay
 });
 
 // keep pressed state fresh
@@ -288,7 +488,6 @@ document.addEventListener('visibilitychange', () => {
 
 
   // ───────────────────────── local state ─────────────────────
-  let KS = false;
 
   const LS = { watch: 'CYCLA_WATCHLIST_V1' };
 
@@ -324,11 +523,6 @@ document.addEventListener('visibilitychange', () => {
     return S.includes("-") ? S : (S.endsWith("USD") ? (S.slice(0,-3) + "-USD") : S.replace("/", "-"));
   };
   const prettyUsd = (n) => (Number.isFinite(n) ? `$${n.toLocaleString(undefined,{maximumFractionDigits:2})}` : "—");
-
-  function ecu(level='ok', code='TW-OK-100', msg=''){
-    INFO_BNR.textContent = `ECU ${level.toUpperCase()}: [${code}] ${msg}`;
-    CY.bus.dispatchEvent(new CustomEvent('cycla:ecu', { detail: { level, msg: `[${code}] ${msg}` }}));
-  }
 
   // Button flash helpers
   function setBusy(btn, on){ btn?.setAttribute('data-busy', on?'true':'false'); if(!on) btn?.removeAttribute('data-busy'); }
@@ -474,14 +668,17 @@ document.addEventListener('visibilitychange', () => {
 
   const keyOf = (s)=>String(s||'').toUpperCase().replace(/[^\w]/g,'');
 
-  function onActiveChanged(){
-    if (active.size && !plPoll){
-      plPoll = setInterval(refreshPricesAndPL, 3000);
-    }else if (!active.size && plPoll){
-      clearInterval(plPoll); plPoll = null;
-    }
-    updatePL();
+function onActiveChanged(){
+  if (active.size && !plPoll){
+    plPoll = setInterval(refreshPricesAndPL, 3000);
+  } else if (!active.size && plPoll){
+    clearInterval(plPoll); plPoll = null;
   }
+  updatePL();
+
+  // keep LEDs honest if operator promotes/demotes rows
+  coverageOnce().catch(()=>{});
+}
 
   async function refreshPricesAndPL(){
     const jobs = [];
@@ -743,8 +940,12 @@ const r = await fetch(`${RELAY}${path}`, { method:'POST' });
     return moved > 0;
   }
 
-  // ───────────────────────── init ─────────────────────────────
-  loadWatch();
-  ecu('ok','TW-READY-000','Ready.');
+// ───────────────────────── init ─────────────────────────────
+loadWatch();
+
+// LED truth on load: reflect relay coverage without waiting for any UI action
+coverageOnce().catch(()=>{});
+
+ecu('ok','TW-READY-000','Ready.');
 })();
 </script>
