@@ -1,0 +1,120 @@
+//@version=6
+strategy(title="Spectra Transform • Dual Render (Osc / Candles / Bars) — Strategy 1:1", shorttitle="Fisher • Dual Render • Strat", format=format.price, precision=2, overlay=false, max_labels_count=500, max_lines_count=500, initial_capital=987, default_qty_type=strategy.percent_of_equity, default_qty_value=89, pyramiding=0, fill_orders_on_standard_ohlc=true)
+
+// ───────── Inputs ─────────
+grpLen = "Length"
+len = input.int(3, minval=1, title="Length", group=grpLen)
+
+grpTF = "Timeframe"
+tfInput = input.timeframe("", "Compute on timeframe", group=grpTF, tooltip="Leave blank to use the chart timeframe.")
+
+grpRender = "Render"
+renderMode = input.string("Oscillator", "Foreground Render",
+     options=["Oscillator","Candles","Bars"], group=grpRender)
+showZero = input.bool(true, "Show 0 Baseline (Oscillator mode)", group=grpRender)
+
+grpStyle = "Style"
+bullCol  = input.color(#43D8DB, "Teal (Fisher > Trigger)", group=grpStyle)
+bearCol  = input.color(#8441DC, "Purple (Fisher < Trigger)", group=grpStyle)
+wickSame = input.bool(true, "Use body color for wicks/borders", group=grpStyle)
+
+grpLabels = "Cross Labels"
+showLbls  = input.bool(true,  "Show Buy/Sell Labels", group=grpLabels)
+
+// ───────── Core utilities ─────────
+round_(val) => val > .99 ? .999 : val < -.99 ? -.999 : val
+
+// Fisher computation packaged as a pure function (safe inside security)
+calcFish(_len) =>
+    _high = ta.highest(hl2, _len)
+    _low  = ta.lowest(hl2, _len)
+    _den  = math.max(_high - _low, syminfo.mintick)
+    _v = 0.0
+    _v := round_(0.66 * ((hl2 - _low) / _den - 0.5) + 0.67 * nz(_v[1]))
+    _val = _v
+    _f1 = 0.0
+    _f1 := 0.5 * math.log((1 + _val) / (1 - _val)) + 0.5 * nz(_f1[1])
+    _f2 = _f1[1]
+    [_f1, _f2]
+
+// Wrapper that returns the tuple via an if-structure (tuple-safe)
+calcFishOn(tf, _len) =>
+    if tf == ""
+        calcFish(_len)
+    else
+        request.security(syminfo.tickerid, tf, calcFish(_len), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+// Compute on chart TF or selected TF
+[fish1, fish2] = calcFishOn(tfInput, len)
+
+// Signal conditions
+buy  = ta.crossover(fish1, fish2)
+sell = ta.crossunder(fish1, fish2)
+isBull = fish1 > fish2
+isBear = fish1 < fish2
+
+// ───────── Foreground module: choose a render ─────────
+// Oscillator
+plot(renderMode == "Oscillator" ? fish1 : na,
+     "Fisher",  color=bullCol, style=plot.style_stepline, linewidth=1)
+plot(renderMode == "Oscillator" ? fish2 : na,
+     "Trigger", color=bearCol, style=plot.style_stepline, linewidth=1)
+plot(renderMode == "Oscillator" and showZero ? 0 : na,
+     "0", color=color.new(#928B92, 0), style=plot.style_line, linewidth=1)
+
+// Synthetic OHLC built from Fisher to draw Candles/Bars
+sOpen  = nz(fish1[1], fish1)
+sClose = fish1
+sHigh  = math.max(sOpen, sClose)
+sLow   = math.min(sOpen, sClose)
+barClr  = isBull ? bullCol : bearCol
+wickClr = wickSame ? barClr : color.new(color.gray, 0)
+brdrClr = wickSame ? barClr : color.new(color.gray, 0)
+
+// Candles
+plotcandle(
+     open  = renderMode == "Candles" ? sOpen  : na,
+     high  = renderMode == "Candles" ? sHigh  : na,
+     low   = renderMode == "Candles" ? sLow   : na,
+     close = renderMode == "Candles" ? sClose : na,
+     title = "Fisher Candles",
+     color = barClr, wickcolor=wickClr, bordercolor=brdrClr)
+
+// Bars
+plotbar(
+     open  = renderMode == "Bars" ? sOpen  : na,
+     high  = renderMode == "Bars" ? sHigh  : na,
+     low   = renderMode == "Bars" ? sLow   : na,
+     close = renderMode == "Bars" ? sClose : na,
+     title = "Fisher Bars",
+     color = barClr)
+
+// ───────── Labels (optional) ─────────
+plotshape(showLbls and buy,  title="Buy Labels",
+     style=shape.triangleup,   location=location.belowbar,
+     color=bullCol, textcolor=color.black, size=size.tiny, text="B")
+
+plotshape(showLbls and sell, title="Sell Labels",
+     style=shape.triangledown, location=location.abovebar,
+     color=bearCol, textcolor=color.white, size=size.tiny, text="S")
+
+// ───────── Strategy orders (long-only, 1:1 with label logic) ─────────
+if buy
+    strategy.entry("Long", strategy.long)
+
+if sell
+    strategy.close("Long")
+
+// ───────── Webhook via alert() (strategy-friendly) ─────────
+// Create one alert in TV with Condition = "Any alert() function call"
+// Webhook URL = https://<your-render-service>.onrender.com/tv
+// Leave the alert's Message box empty (we send JSON from code).
+var string SECRET = "9ff85f506684accd08a7feeffd0e8d46"  // must match TV_WEBHOOK_SECRET on Render
+symMsg = syminfo.ticker                              // or hard-code "ETHUSD"/"BTCUSD" if needed
+tsStr  = str.tostring(timenow)
+
+if buy
+    alert('{"secret":"' + SECRET + '","side":"buy","symbol":"' + symMsg + '","ts":"' + tsStr + '"}', alert.freq_once_per_bar)
+
+if sell
+    alert('{"secret":"' + SECRET + '","side":"sell","symbol":"' + symMsg + '","ts":"' + tsStr + '"}', alert.freq_once_per_bar)
