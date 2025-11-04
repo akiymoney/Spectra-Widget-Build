@@ -15,8 +15,8 @@ TICK_MS = 250
 CHASE_MS = 5000
 
 RH_API_KEY = rh-api-293092be-b05b-4289-96bd-09f571f3e87c
-PS C:\Users\Demo> node -e "const {generateKeyPairSync}=require('node:crypto'); const {publicKey,privateKey}=generateKeyPairSync('ed25519'); const pub=publicKey.export({format:'jwk'}); const prv=privateKey.export({format:'jwk'}); const u2b64=s=> (s.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((s.length+3)%4)); console.log('Public (base64):',u2b64(pub.x)); console.log('Private (base64):',u2b64(prv.d));"
+RH_PRIVATE_KEY_BASE64 = 8/nwmVYGtPJKiTEtCLP1Pg7SNssXLWcB3xv6Ayzjhb4=
+RH_BASE = https://trading.robinhood.com
 Public (base64): 0BAD/wFbx4AAnq5B1zzSRxor0lQRxMIuIM6lYrbz8mg=
-Private (base64): 8/nwmVYGtPJKiTEtCLP1Pg7SNssXLWcB3xv6Ayzjhb4=
 
 TV_WEBHOOK_SECRET = 9ff85f506684accd08a7feeffd0e8d46
